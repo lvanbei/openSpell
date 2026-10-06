@@ -1,57 +1,80 @@
 #!/usr/bin/env bash
-# Packages build/OpenSpell.app (made by scripts/build.sh) into a drag-to-Applications
-# disk image: build/OpenSpell-<version>.dmg plus a .sha256 checksum.
+# Builds OpenSpell.app into ./build
 #
-#   ./scripts/build.sh && ./scripts/package.sh
+#   ./scripts/build.sh                 # Release build, ad-hoc signed
+#   CODESIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./scripts/build.sh
+#   VERSION=1.2.0 BUILD_NUMBER=42 ./scripts/build.sh   # stamp the bundle version (CI uses the git tag)
+#   ./scripts/build.sh --install       # also copy to /Applications and launch
 #
-# Optional, for distribution outside the App Store:
-#   CODESIGN_IDENTITY="Developer ID Application: …"            sign the disk image
-#   NOTARY_PROFILE=<profile>                                     notarize with `xcrun notarytool store-credentials` credentials
-#   NOTARY_KEY=<AuthKey.p8> NOTARY_KEY_ID=<id> NOTARY_ISSUER=<id>   …or with an App Store Connect API key
+# A stable signing identity is strongly recommended: with ad-hoc signing macOS
+# forgets the Accessibility permission every time the binary changes.
+# Developer ID identities also get the hardened runtime and a timestamp, as notarization requires.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+CONFIG="${CONFIG:-Release}"
+DERIVED="$ROOT/.build/xcode"
+PRODUCTS="$DERIVED/Build/Products/$CONFIG"
 APP="$ROOT/build/OpenSpell.app"
-[ -d "$APP" ] || { echo "Missing $APP — run scripts/build.sh first."; exit 1; }
-
-VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
-DMG="$ROOT/build/OpenSpell-$VERSION.dmg"
-STAGING="$(mktemp -d)"
-trap 'rm -rf "$STAGING"' EXIT
-
-echo "› Creating disk image…"
-ditto "$APP" "$STAGING/OpenSpell.app"
-ln -s /Applications "$STAGING/Applications"
-# hdiutil sometimes fails with "Resource busy" on CI runners; retrying helps.
-for attempt in 1 2 3 4 5; do
-  hdiutil create -volname OpenSpell -srcfolder "$STAGING" -format UDZO -ov -quiet "$DMG" && break
-  [ "$attempt" -lt 5 ] || exit 1
-  echo "  hdiutil failed, retrying ($attempt)…"
-  sleep 5
-done
-
-if [[ -n "${CODESIGN_IDENTITY:-}" && "$CODESIGN_IDENTITY" != "-" ]]; then
-  echo "› Signing disk image…"
-  codesign --force --timestamp --sign "$CODESIGN_IDENTITY" "$DMG"
+if [ -n "${CODESIGN_IDENTITY:-}" ]; then
+    IDENTITY="$CODESIGN_IDENTITY"
+else
+    # Prefer a local Apple Development certificate (by hash, names can be ambiguous); else ad-hoc.
+    IDENTITY="$(security find-identity -p codesigning -v 2>/dev/null | awk '/Apple Development/ {print $2; exit}')"
+    IDENTITY="${IDENTITY:--}"
 fi
 
-if [ -n "${NOTARY_PROFILE:-}" ]; then
-  AUTH=(--keychain-profile "$NOTARY_PROFILE")
-elif [ -n "${NOTARY_KEY:-}" ]; then
-  AUTH=(--key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER")
-fi
-if [ -n "${AUTH+x}" ]; then
-  echo "› Notarizing (usually takes a few minutes)…"
-  RESULT="$ROOT/build/notarization.json"
-  xcrun notarytool submit "$DMG" "${AUTH[@]}" --wait --output-format json > "$RESULT"
-  # notarytool can exit 0 even when Apple rejects the submission.
-  if [ "$(plutil -extract status raw -o - "$RESULT")" != "Accepted" ]; then
-    xcrun notarytool log "$(plutil -extract id raw -o - "$RESULT")" "${AUTH[@]}" || true
-    echo "Notarization failed — see the log above."
-    exit 1
-  fi
-  xcrun stapler staple "$DMG"
+if ! xcrun -f metal >/dev/null 2>&1 || ! xcrun metal -v >/dev/null 2>&1; then
+    echo "› Installing the Metal toolchain (needed to compile MLX kernels)…"
+    xcodebuild -downloadComponent MetalToolchain
 fi
 
-(cd "$(dirname "$DMG")" && shasum -a 256 "$(basename "$DMG")" > "$(basename "$DMG").sha256")
-echo "✓ Packaged $DMG"
+echo "› Compiling ($CONFIG)…"
+xcodebuild -scheme OpenSpell -configuration "$CONFIG" \
+-destination 'platform=macOS,arch=arm64' \
+-derivedDataPath "$DERIVED" \
+-skipMacroValidation -skipPackagePluginValidation \
+build > "$ROOT/build.log" 2>&1 || { grep -E "error:" "$ROOT/build.log" | sort -u; echo "Build failed — see build.log"; exit 1; }
+
+echo "› Assembling bundle…"
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp "$PRODUCTS/OpenSpell" "$APP/Contents/MacOS/OpenSpell"
+cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+if [ -n "${VERSION:-}" ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+fi
+if [ -n "${BUILD_NUMBER:-}" ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
+fi
+# SwiftPM resource bundles (MLX's default.metallib lives in mlx-swift_Cmlx.bundle).
+for b in "$PRODUCTS"/*.bundle; do cp -R "$b" "$APP/Contents/Resources/"; done
+
+if [ ! -f "$ROOT/build/AppIcon.icns" ]; then
+    echo "› Rendering icon…"
+    rm -rf "$ROOT/build/AppIcon.iconset"
+    swift "$ROOT/scripts/make-icon.swift" "$ROOT/build/AppIcon.iconset" >/dev/null
+    iconutil -c icns "$ROOT/build/AppIcon.iconset" -o "$ROOT/build/AppIcon.icns"
+fi
+cp "$ROOT/build/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+
+echo "› Signing ($IDENTITY)…"
+SIGN_FLAGS=(--force --deep --sign "$IDENTITY")
+CERT="$(security find-identity -p codesigning -v 2>/dev/null | grep -F -- "$IDENTITY" || true)"
+if [[ "$IDENTITY" != "-" && "$CERT" == *"Developer ID Application"* ]]; then
+    SIGN_FLAGS+=(--options runtime --timestamp)
+fi
+codesign "${SIGN_FLAGS[@]}" "$APP"
+codesign --verify --strict "$APP"
+
+echo "✓ Built $APP"
+
+if [[ "${1:-}" == "--install" ]]; then
+    pkill -x OpenSpell 2>/dev/null || true
+    rm -rf /Applications/OpenSpell.app
+    cp -R "$APP" /Applications/
+    open /Applications/OpenSpell.app
+    echo "✓ Installed to /Applications and launched"
+fi

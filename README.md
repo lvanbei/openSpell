@@ -47,7 +47,7 @@ cd openSpell
 | `--install`                                                       | Copy the app to `/Applications` and launch it |
 | `CONFIG=Debug`                                                    | Build the Debug configuration                 |
 | `CODESIGN_IDENTITY="Apple Development: you@example.com (TEAMID)"` | Sign with a specific identity                 |
-| `VERSION=1.2.0 BUILD_NUMBER=42`                                  | Set the version and build number              |
+| `VERSION=1.2.0 BUILD_NUMBER=42`                                   | Set the version and build number              |
 
 By default, the script signs with the first Apple Development certificate in your keychain. If there isn't one, it signs ad-hoc. Use a stable identity if you can: with an ad-hoc signature, macOS forgets the Accessibility permission every time the binary changes.
 
@@ -160,7 +160,7 @@ Without extra setup, release builds are signed ad-hoc. To sign them with Develop
 | `MACOS_CERTIFICATE_PASSWORD` | The password of the .p12 file                                                                  |
 | `NOTARY_KEY_P8`              | The contents of an App Store Connect API key file (`AuthKey_….p8`) with the Developer role     |
 | `NOTARY_KEY_ID`              | The API key's ID                                                                               |
-| `NOTARY_ISSUER_ID`           | The issuer ID shown above your API keys in App Store Connect › Users and Access › Integrations  |
+| `NOTARY_ISSUER_ID`           | The issuer ID shown above your API keys in App Store Connect › Users and Access › Integrations |
 
 To base64-encode the certificate, run `base64 -i certificate.p12 | pbcopy`. You can also sign and notarize locally with a `notarytool` keychain profile:
 
