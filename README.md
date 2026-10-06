@@ -6,6 +6,14 @@ You can run corrections on your Mac with [MLX](https://github.com/ml-explore/mlx
 
 ![The OpenSpell Setup Assistant welcome screen](docs/screenshots/setup.png)
 
+## Install
+
+1. Download **OpenSpell-&lt;version&gt;.dmg** from the [latest release](https://github.com/lvanbei/openSpell/releases/latest).
+2. Open it and drag **OpenSpell** to **Applications**.
+3. Open OpenSpell from Applications. Releases aren't notarized by Apple yet, so macOS blocks the first launch. Open **System Settings › Privacy & Security**, scroll down and click **Open Anyway**.
+
+OpenSpell needs macOS 15 or later on an Apple silicon Mac. To build it yourself, see [Build from source](#build-from-source).
+
 ## Features
 
 - **Works in any app.** It fixes the selection in place and restores your clipboard afterwards.
@@ -24,7 +32,7 @@ You can run corrections on your Mac with [MLX](https://github.com/ml-explore/mlx
 - An Apple silicon Mac (the build targets arm64, and on-device models need Apple silicon)
 - Xcode with Swift 6.3 or later (mlx-swift requires it)
 
-## Build and install
+## Build from source
 
 ```sh
 git clone https://github.com/lvanbei/openSpell.git
@@ -39,8 +47,11 @@ cd openSpell
 | `--install`                                                       | Copy the app to `/Applications` and launch it |
 | `CONFIG=Debug`                                                    | Build the Debug configuration                 |
 | `CODESIGN_IDENTITY="Apple Development: you@example.com (TEAMID)"` | Sign with a specific identity                 |
+| `VERSION=1.2.0 BUILD_NUMBER=42`                                  | Set the version and build number              |
 
 By default, the script signs with the first Apple Development certificate in your keychain. If there isn't one, it signs ad-hoc. Use a stable identity if you can: with an ad-hoc signature, macOS forgets the Accessibility permission every time the binary changes.
+
+To make a disk image, run `./scripts/package.sh` after building. It writes `build/OpenSpell-<version>.dmg` and a SHA-256 checksum next to it.
 
 > [!NOTE]
 > Build with the script or Xcode, not `swift build`. SwiftPM on the command line can't compile MLX's Metal shaders.
@@ -122,11 +133,42 @@ Paste an [OpenRouter](https://openrouter.ai) key. Then browse the catalogue, whi
 
 Start with **Settings › Test**. It checks the Accessibility permission, the shortcut, the force click listener and the model.
 
-- **Accessibility is revoked after every rebuild.** The app is signed ad-hoc. Sign it with a stable identity (see [Build and install](#build-and-install)). To remove the stale permission entry, run `tccutil reset Accessibility app.openspell.OpenSpell`, then allow OpenSpell again.
+- **Accessibility is revoked after every rebuild.** The app is signed ad-hoc. Sign it with a stable identity (see [Build from source](#build-from-source)). Downloaded releases that aren't signed with a Developer ID have the same problem after each update. To remove the stale permission entry, run `tccutil reset Accessibility app.openspell.OpenSpell`, then allow OpenSpell again.
 - **The shortcut does nothing.** Another app might already use it. Record a different shortcut in Settings › Shortcut.
 - **Force click doesn't trigger.** Turn on "Force Click and haptic feedback" in System Settings › Trackpad. The force click listener also needs the Accessibility permission.
 - **The bubble says "fix copied, press ⌘V".** You switched apps, or the text changed, before the correction finished. The fix is on the clipboard.
 - **OpenRouter returns error 402 or 429.** Error 402 means the model needs credits, and 429 means it's rate-limited. Pick a model marked Free, or try a different model.
+
+## Releases
+
+The [CI/CD workflow](.github/workflows/ci.yml) builds and packages the app on every push and pull request, and attaches the disk image to the run. To publish a release, push a version tag:
+
+```sh
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+The workflow takes the version from the tag, builds `OpenSpell-1.1.0.dmg` and publishes it with its checksum on the [Releases](https://github.com/lvanbei/openSpell/releases) page. Tags with a suffix, such as `v1.1.0-beta.1`, become pre-releases.
+
+### Signing and notarization
+
+Without extra setup, release builds are signed ad-hoc. To sign them with Developer ID and have Apple notarize them, add these secrets in the repository's Settings › Secrets and variables › Actions:
+
+| Secret                       | Value                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `MACOS_CERTIFICATE_P12`      | Your Developer ID Application certificate and private key, exported as .p12 and base64-encoded |
+| `MACOS_CERTIFICATE_PASSWORD` | The password of the .p12 file                                                                  |
+| `NOTARY_KEY_P8`              | The contents of an App Store Connect API key file (`AuthKey_….p8`) with the Developer role     |
+| `NOTARY_KEY_ID`              | The API key's ID                                                                               |
+| `NOTARY_ISSUER_ID`           | The issuer ID shown above your API keys in App Store Connect › Users and Access › Integrations  |
+
+To base64-encode the certificate, run `base64 -i certificate.p12 | pbcopy`. You can also sign and notarize locally with a `notarytool` keychain profile:
+
+```sh
+xcrun notarytool store-credentials openspell   # one-time setup
+export CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+./scripts/build.sh && NOTARY_PROFILE=openspell ./scripts/package.sh
+```
 
 ## Developer CLI
 
@@ -162,4 +204,6 @@ $APP --snapshot /tmp/openspell-snapshots
 | [Sources/OpenSpell/UI](Sources/OpenSpell/UI)         | SwiftUI views for settings, history and the setup assistant                                                      |
 | [Resources/Info.plist](Resources/Info.plist)         | App bundle metadata                                                                                              |
 | [scripts/build.sh](scripts/build.sh)                 | Script that builds, signs and installs the app                                                                   |
+| [scripts/package.sh](scripts/package.sh)             | Script that packages the app into a disk image and can sign and notarize it                                      |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml) | CI/CD workflow that builds every push and publishes a release for each version tag                               |
 | [scripts/make-icon.swift](scripts/make-icon.swift)   | Script that renders the app icon                                                                                 |

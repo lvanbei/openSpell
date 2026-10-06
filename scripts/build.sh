@@ -3,10 +3,12 @@
 #
 #   ./scripts/build.sh                 # Release build, ad-hoc signed
 #   CODESIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./scripts/build.sh
+#   VERSION=1.2.0 BUILD_NUMBER=42 ./scripts/build.sh   # stamp the bundle version (CI uses the git tag)
 #   ./scripts/build.sh --install       # also copy to /Applications and launch
 #
 # A stable signing identity is strongly recommended: with ad-hoc signing macOS
 # forgets the Accessibility permission every time the binary changes.
+# Developer ID identities also get the hardened runtime and a timestamp, as notarization requires.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -41,6 +43,12 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$PRODUCTS/OpenSpell" "$APP/Contents/MacOS/OpenSpell"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+if [ -n "${VERSION:-}" ]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+fi
+if [ -n "${BUILD_NUMBER:-}" ]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
+fi
 # SwiftPM resource bundles (MLX's default.metallib lives in mlx-swift_Cmlx.bundle).
 for b in "$PRODUCTS"/*.bundle; do cp -R "$b" "$APP/Contents/Resources/"; done
 
@@ -53,7 +61,12 @@ fi
 cp "$ROOT/build/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 echo "› Signing ($IDENTITY)…"
-codesign --force --deep --sign "$IDENTITY" "$APP"
+SIGN_FLAGS=(--force --deep --sign "$IDENTITY")
+CERT="$(security find-identity -p codesigning -v 2>/dev/null | grep -F -- "$IDENTITY" || true)"
+if [[ "$IDENTITY" != "-" && "$CERT" == *"Developer ID Application"* ]]; then
+  SIGN_FLAGS+=(--options runtime --timestamp)
+fi
+codesign "${SIGN_FLAGS[@]}" "$APP"
 codesign --verify --strict "$APP"
 
 echo "✓ Built $APP"
