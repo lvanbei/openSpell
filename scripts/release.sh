@@ -5,8 +5,8 @@
 #   ./scripts/release.sh 1.2.0          # release v1.2.0 with OpenSpell-1.2.0.dmg and its checksum
 #   ./scripts/release.sh 1.3.0-beta.1   # a version with a suffix becomes a pre-release
 #
-# Needs the GitHub CLI (`gh auth login`). For a notarized release, also set CODESIGN_IDENTITY
-# and NOTARY_PROFILE (see scripts/build.sh and scripts/package.sh).
+# Needs the GitHub CLI (`gh auth login`), a Developer ID Application certificate and the "openspell"
+# notarytool profile (see README › Signing and notarization). CODESIGN_IDENTITY and NOTARY_PROFILE override them.
 set -euo pipefail
 
 VERSION="${1:-}"
@@ -38,28 +38,38 @@ if git rev-parse --quiet --verify "refs/tags/$TAG" > /dev/null; then
     exit 1
 fi
 
+# Without a Developer ID signature and notarization, Gatekeeper blocks the download.
+if [ -z "${CODESIGN_IDENTITY:-}" ]; then
+    CODESIGN_IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application/ && !found { print $2; found = 1 }')"
+fi
+if [[ "$CODESIGN_IDENTITY" != "Developer ID Application"* ]]; then
+    echo "Not releasing: no Developer ID Application certificate in your keychain (see README › Signing and notarization)."
+    exit 1
+fi
+export CODESIGN_IDENTITY
+export NOTARY_PROFILE="${NOTARY_PROFILE:-openspell}"
+if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" > /dev/null 2>&1; then
+    echo "Not releasing: the notarytool profile \"$NOTARY_PROFILE\" is missing or invalid (see README › Signing and notarization)."
+    exit 1
+fi
+
 VERSION="$VERSION" BUILD_NUMBER="$(git rev-list --count HEAD)" ./scripts/build.sh
 ./scripts/package.sh
 DMG="build/OpenSpell-$VERSION.dmg"
 
+echo "› Checking Gatekeeper…"
+spctl --assess --type open --context context:primary-signature -v "$DMG"
+spctl --assess --type execute -v build/OpenSpell.app
+
 NOTES="$(mktemp)"
 trap 'rm -f "$NOTES"' EXIT
-SIGNATURE="$(codesign -dv build/OpenSpell.app 2>&1)"
 {
     echo "## Install"
     echo
     echo "1. Download **OpenSpell-$VERSION.dmg** below and open it."
     echo "2. Drag **OpenSpell** to **Applications**, then open it from there."
-    if ! xcrun stapler validate "$DMG" > /dev/null 2>&1; then
-        echo "3. This build isn't notarized by Apple, so macOS blocks the first launch. Open **System Settings › Privacy & Security**, scroll down and click **Open Anyway**."
-    fi
-    if [[ "$SIGNATURE" == *"Signature=adhoc"* ]]; then
-        echo
-        echo "> [!NOTE]"
-        echo "> This build is signed ad-hoc, so after each update macOS asks you to allow OpenSpell in Accessibility again."
-    fi
     echo
-    echo "Requires macOS 15 or later on an Apple silicon Mac. To verify the download, run \`shasum -a 256 -c OpenSpell-$VERSION.dmg.sha256\`."
+    echo "Signed with a Developer ID and notarized by Apple. Requires macOS 15 or later on an Apple silicon Mac. To verify the download, run \`shasum -a 256 -c OpenSpell-$VERSION.dmg.sha256\`."
 } > "$NOTES"
 
 PRERELEASE=false

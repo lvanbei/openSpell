@@ -10,7 +10,7 @@ You can run corrections on your Mac with [MLX](https://github.com/ml-explore/mlx
 
 1. Download **OpenSpell-&lt;version&gt;.dmg** from the [latest release](https://github.com/lvanbei/openSpell/releases/latest).
 2. Open it and drag **OpenSpell** to **Applications**.
-3. Open OpenSpell from Applications. Releases aren't notarized by Apple yet, so macOS blocks the first launch. Open **System Settings › Privacy & Security**, scroll down and click **Open Anyway**.
+3. Open OpenSpell from Applications. Releases are signed with a Developer ID and notarized by Apple, so macOS opens them without a warning.
 
 OpenSpell needs macOS 15 or later on an Apple silicon Mac. To build it yourself, see [Build from source](#build-from-source).
 
@@ -133,7 +133,7 @@ Paste an [OpenRouter](https://openrouter.ai) key. Then browse the catalogue, whi
 
 Start with **Settings › Test**. It checks the Accessibility permission, the shortcut, the force click listener and the model.
 
-- **Accessibility is revoked after every rebuild.** The app is signed ad-hoc. Sign it with a stable identity (see [Build from source](#build-from-source)). Ad-hoc signed releases, such as 1.0.0, have the same problem after each update. To remove the stale permission entry, run `tccutil reset Accessibility app.openspell.OpenSpell`, then allow OpenSpell again.
+- **Accessibility is revoked after every rebuild.** The app is signed ad-hoc. Sign it with a stable identity (see [Build from source](#build-from-source)). To remove the stale permission entry, run `tccutil reset Accessibility app.openspell.OpenSpell`, then allow OpenSpell again.
 - **The shortcut does nothing.** Another app might already use it. Record a different shortcut in Settings › Shortcut.
 - **Force click doesn't trigger.** Turn on "Force Click and haptic feedback" in System Settings › Trackpad. The force click listener also needs the Accessibility permission.
 - **The bubble says "fix copied, press ⌘V".** You switched apps, or the text changed, before the correction finished. The fix is on the clipboard.
@@ -159,12 +159,16 @@ The script only releases from `main` with no uncommitted changes. It builds and 
 
 ### Signing and notarization
 
-Releases are signed with your Apple Development certificate if you have one, so the Accessibility permission survives updates. They aren't notarized, so users have to click **Open Anyway** on the first launch. To ship a notarized release instead, store your notarization credentials once and sign with a Developer ID certificate:
+Every release is signed with a Developer ID and notarized by Apple, so it opens without a Gatekeeper warning and keeps its Accessibility permission across updates. `release.sh` refuses to publish without both, and checks the result with Gatekeeper before it pushes anything. Set this up once per Mac (it needs a paid Apple Developer account):
 
-```sh
-xcrun notarytool store-credentials openspell
-CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=openspell ./scripts/release.sh 1.1.0
-```
+1. **Developer ID certificate.** In Xcode, open Settings › Accounts, select your team and click **Manage Certificates**. Click **+** and choose **Developer ID Application**. Only the team's Account Holder can create it.
+2. **Notarization credentials.** Create an app-specific password at [account.apple.com](https://account.apple.com) (Sign-In and Security › App-Specific Passwords), then save it in your keychain:
+
+   ```sh
+   xcrun notarytool store-credentials openspell --apple-id you@example.com --team-id TEAMID
+   ```
+
+`release.sh` finds the certificate on its own and uses the `openspell` profile. To use others, set `CODESIGN_IDENTITY` and `NOTARY_PROFILE`.
 
 ## Developer CLI
 
