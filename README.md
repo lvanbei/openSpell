@@ -208,3 +208,7 @@ $APP --snapshot /tmp/openspell-snapshots
 | [scripts/release.sh](scripts/release.sh)             | Script that builds the app on your Mac and publishes it as a GitHub release                                      |
 | [.githooks/post-commit](.githooks/post-commit)       | Git hook that publishes every commit on `main` as the next patch release                                         |
 | [scripts/make-icon.swift](scripts/make-icon.swift)   | Script that renders the app icon                                                                                 |
+
+## Demo
+
+[Watch the quick demo (MP4)](docs/screenshots/OpenSpell_QuickDemo_Static.mp4)
