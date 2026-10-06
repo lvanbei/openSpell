@@ -4,6 +4,8 @@ OpenSpell is a macOS menu bar app that fixes spelling, grammar and punctuation i
 
 You can run corrections on your Mac with [MLX](https://github.com/ml-explore/mlx-swift) models, or in the cloud with your own Google Gemini or OpenRouter API key.
 
+[![OpenSpell demo: select text, then press ⇧⌘Space or press firmly on the trackpad, and the fix replaces the selection](docs/screenshots/OpenSpell_QuickDemo_Static.gif)](docs/screenshots/OpenSpell_QuickDemo_Static.mp4)
+
 ![The OpenSpell Setup Assistant welcome screen](docs/screenshots/setup.png)
 
 ## Install
@@ -208,7 +210,3 @@ $APP --snapshot /tmp/openspell-snapshots
 | [scripts/release.sh](scripts/release.sh)             | Script that builds the app on your Mac and publishes it as a GitHub release                                      |
 | [.githooks/post-commit](.githooks/post-commit)       | Git hook that publishes every commit on `main` as the next patch release                                         |
 | [scripts/make-icon.swift](scripts/make-icon.swift)   | Script that renders the app icon                                                                                 |
-
-## Demo
-
-[Watch the quick demo (MP4)](docs/screenshots/OpenSpell_QuickDemo_Static.mp4)
