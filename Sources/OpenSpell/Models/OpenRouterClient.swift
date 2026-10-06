@@ -23,7 +23,15 @@ enum OpenRouterClient {
 
     static func complete(model: String, system: String, user: String, apiKey overrideKey: String? = nil) async throws -> String {
         guard let key = overrideKey ?? apiKey, !key.isEmpty else { throw OpenRouterError.missingAPIKey }
+        do {
+            return try await send(model: model, system: system, user: user, key: key, mustReason: false)
+        } catch OpenRouterError.http(400, let message) where message.localizedCaseInsensitiveContains("reasoning is mandatory") {
+            // This model (or the one a router like openrouter/free picked) can't stop reasoning — keep it minimal instead.
+            return try await send(model: model, system: system, user: user, key: key, mustReason: true)
+        }
+    }
 
+    private static func send(model: String, system: String, user: String, key: String, mustReason: Bool) async throws -> String {
         var request = URLRequest(url: base.appending(path: "chat/completions"))
         request.httpMethod = "POST"
         request.timeoutInterval = 60
@@ -32,18 +40,21 @@ enum OpenRouterClient {
         request.setValue("https://github.com/openspell", forHTTPHeaderField: "HTTP-Referer")
         request.setValue("OpenSpell", forHTTPHeaderField: "X-Title")
 
+        // Without a cap OpenRouter reserves the model's full output length against your credit,
+        // which fails on free / low-balance keys. Corrections are about as long as the input.
+        let answerTokens = min(4096, max(256, user.utf8.count / 2 + 128))
+        // Don't spend tokens "thinking" for a proofreading task.
+        let reasoning: [String: Any] = mustReason ? ["effort": "minimal", "exclude": true] : ["enabled": false]
         let body: [String: Any] = [
             "model": model,
             "temperature": 0,
-            // Without a cap OpenRouter reserves the model's full output length against your credit,
-            // which fails on free / low-balance keys. Corrections are about as long as the input.
-            "max_tokens": min(4096, max(256, user.utf8.count / 2 + 128)),
+            // Reasoning tokens count against max_tokens, so leave room to think before answering.
+            "max_tokens": mustReason ? answerTokens + 2048 : answerTokens,
             "messages": [
                 ["role": "system", "content": system],
                 ["role": "user", "content": user],
             ],
-            // Don't spend tokens "thinking" for a proofreading task.
-            "reasoning": ["enabled": false],
+            "reasoning": reasoning,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

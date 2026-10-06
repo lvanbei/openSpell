@@ -73,9 +73,10 @@ final class ForceTouchMonitor: ObservableObject {
 
     /// System Settings › Trackpad › "Force Click and haptic feedback". When off, macOS doesn't
     /// report deep presses at all, so force-click triggering can't work.
+    /// Not `com.apple.trackpad.forceClick`: that's "Look up & data detectors › Force Click with one finger".
     nonisolated static var systemForceClickEnabled: Bool {
-        let global = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)
-        return (global?["com.apple.trackpad.forceClick"] as? Bool) ?? true
+        let trackpad = UserDefaults.standard.persistentDomain(forName: "com.apple.AppleMultitouchTrackpad")
+        return !((trackpad?["ForceSuppressed"] as? Bool) ?? false)
     }
 
     static func openTrackpadSettings() {
