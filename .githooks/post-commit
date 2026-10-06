@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Publishes every commit on main as the next patch release (1.0.1, 1.0.2, …) with scripts/release.sh.
+# Put "[skip release]" in a commit message to skip it. Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+
+# Git exports these to hooks; they would misdirect the git calls SwiftPM makes during the build.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+
+if [ "$(git branch --show-current)" != main ]; then exit 0; fi
+# Rebases, merges and cherry-picks create commits too; don't release those.
+for state in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD; do
+    if [ -e "$(git rev-parse --git-path "$state")" ]; then exit 0; fi
+done
+if [[ "$(git log -1 --format=%B)" == *"[skip release]"* ]]; then
+    echo "Skipping the release ([skip release] in the commit message)."
+    exit 0
+fi
+
+git fetch --quiet --tags origin
+LATEST="$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | awk 'NR == 1' || true)"
+IFS=. read -r MAJOR MINOR PATCH <<< "${LATEST:-v0.0.0}"
+MAJOR="${MAJOR#v}"
+exec ./scripts/release.sh "$MAJOR.$MINOR.$((PATCH + 1))"

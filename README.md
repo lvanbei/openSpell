@@ -141,13 +141,21 @@ Start with **Settings › Test**. It checks the Accessibility permission, the sh
 
 ## Releases
 
-Releases are built on your Mac and published with the [GitHub CLI](https://cli.github.com). Sign in once with `gh auth login`, commit and push your changes, then run:
+Releases are built on your Mac and published with the [GitHub CLI](https://cli.github.com). Sign in once with `gh auth login`, and enable the repository's git hooks once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+From then on, every commit on `main` is published as the next patch release (1.0.1, 1.0.2, …). The [post-commit hook](.githooks/post-commit) runs [scripts/release.sh](scripts/release.sh), so the commit waits while the app builds, `main` is pushed and the release is uploaded. To commit without releasing, put `[skip release]` in the commit message. Commits made during a rebase, merge or cherry-pick aren't released.
+
+To release a specific version, such as a minor update or a beta, commit and run the script yourself:
 
 ```sh
 ./scripts/release.sh 1.1.0
 ```
 
-[scripts/release.sh](scripts/release.sh) checks that your commit is clean and already on GitHub, then builds and packages `OpenSpell-1.1.0.dmg`. It creates the `v1.1.0` tag and a release with the disk image, its checksum and install notes. A version with a suffix, such as `1.1.0-beta.1`, becomes a pre-release.
+The script only releases from `main` with no uncommitted changes. It builds and packages `OpenSpell-1.1.0.dmg`, pushes `main`, then creates the `v1.1.0` tag and a release with the disk image, its checksum and install notes. A version with a suffix, such as `1.1.0-beta.1`, becomes a pre-release.
 
 ### Signing and notarization
 
@@ -194,4 +202,5 @@ $APP --snapshot /tmp/openspell-snapshots
 | [scripts/build.sh](scripts/build.sh)                 | Script that builds, signs and installs the app                                                                   |
 | [scripts/package.sh](scripts/package.sh)             | Script that packages the app into a disk image and can sign and notarize it                                      |
 | [scripts/release.sh](scripts/release.sh)             | Script that builds the app on your Mac and publishes it as a GitHub release                                      |
+| [.githooks/post-commit](.githooks/post-commit)       | Git hook that publishes every commit on `main` as the next patch release                                         |
 | [scripts/make-icon.swift](scripts/make-icon.swift)   | Script that renders the app icon                                                                                 |

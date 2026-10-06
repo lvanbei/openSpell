@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds OpenSpell on this Mac and publishes it as a GitHub release.
+# Builds OpenSpell on this Mac, pushes main and publishes it as a GitHub release.
+# The .githooks/post-commit hook runs this for every commit on main.
 #
 #   ./scripts/release.sh 1.2.0          # release v1.2.0 with OpenSpell-1.2.0.dmg and its checksum
 #   ./scripts/release.sh 1.3.0-beta.1   # a version with a suffix becomes a pre-release
@@ -18,14 +19,18 @@ TAG="v$VERSION"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# Only release committed code that's already on GitHub, under a new tag.
+# Only release committed code from main, under a new tag.
+if [ "$(git branch --show-current)" != main ]; then
+    echo "Releases are made from main."
+    exit 1
+fi
 if [ -n "$(git status --porcelain)" ]; then
-    echo "Commit or stash your changes first."
+    echo "Not releasing: commit or stash your other changes first."
     exit 1
 fi
 git fetch --quiet --tags origin
-if ! git merge-base --is-ancestor HEAD origin/main; then
-    echo "Push this commit to origin/main first."
+if ! git merge-base --is-ancestor origin/main HEAD; then
+    echo "Not releasing: origin/main has commits you don't have. Pull first."
     exit 1
 fi
 if git rev-parse --quiet --verify "refs/tags/$TAG" > /dev/null; then
@@ -59,6 +64,7 @@ SIGNATURE="$(codesign -dv build/OpenSpell.app 2>&1)"
 
 PRERELEASE=false
 if [[ "$VERSION" == *-* ]]; then PRERELEASE=true; fi
+git push --quiet origin main
 # gh creates the tag on GitHub, at this commit, together with the release.
 gh release create "$TAG" "$DMG" "$DMG.sha256" --target "$(git rev-parse HEAD)" \
     --title "OpenSpell $VERSION" --notes-file "$NOTES" --generate-notes --prerelease="$PRERELEASE"
