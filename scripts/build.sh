@@ -3,7 +3,7 @@
 #
 #   ./scripts/build.sh                 # Release build, ad-hoc signed
 #   CODESIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" ./scripts/build.sh
-#   VERSION=1.2.0 BUILD_NUMBER=42 ./scripts/build.sh   # stamp the bundle version (CI uses the git tag)
+#   VERSION=1.2.0 BUILD_NUMBER=42 ./scripts/build.sh   # stamp the bundle version (scripts/release.sh does this)
 #   ./scripts/build.sh --install       # also copy to /Applications and launch
 #
 # A stable signing identity is strongly recommended: with ad-hoc signing macOS

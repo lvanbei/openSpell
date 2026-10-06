@@ -4,3 +4,4 @@ build/
 DerivedData/
 *.xcuserstate
 .DS_Store
+build.log

@@ -1,0 +1,6 @@
+{
+    // bash-beautify formats concurrent saves with shared state, which swaps or truncates scripts.
+    "[shellscript]": {
+        "editor.formatOnSave": false
+    }
+}

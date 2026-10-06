@@ -133,7 +133,7 @@ Paste an [OpenRouter](https://openrouter.ai) key. Then browse the catalogue, whi
 
 Start with **Settings › Test**. It checks the Accessibility permission, the shortcut, the force click listener and the model.
 
-- **Accessibility is revoked after every rebuild.** The app is signed ad-hoc. Sign it with a stable identity (see [Build from source](#build-from-source)). Downloaded releases that aren't signed with a Developer ID have the same problem after each update. To remove the stale permission entry, run `tccutil reset Accessibility app.openspell.OpenSpell`, then allow OpenSpell again.
+- **Accessibility is revoked after every rebuild.** The app is signed ad-hoc. Sign it with a stable identity (see [Build from source](#build-from-source)). Ad-hoc signed releases, such as 1.0.0, have the same problem after each update. To remove the stale permission entry, run `tccutil reset Accessibility app.openspell.OpenSpell`, then allow OpenSpell again.
 - **The shortcut does nothing.** Another app might already use it. Record a different shortcut in Settings › Shortcut.
 - **Force click doesn't trigger.** Turn on "Force Click and haptic feedback" in System Settings › Trackpad. The force click listener also needs the Accessibility permission.
 - **The bubble says "fix copied, press ⌘V".** You switched apps, or the text changed, before the correction finished. The fix is on the clipboard.
@@ -141,33 +141,21 @@ Start with **Settings › Test**. It checks the Accessibility permission, the sh
 
 ## Releases
 
-The [CI/CD workflow](.github/workflows/ci.yml) builds and packages the app on every push and pull request, and attaches the disk image to the run. To publish a release, push a version tag:
+Releases are built on your Mac and published with the [GitHub CLI](https://cli.github.com). Sign in once with `gh auth login`, commit and push your changes, then run:
 
 ```sh
-git tag v1.1.0
-git push origin v1.1.0
+./scripts/release.sh 1.1.0
 ```
 
-The workflow takes the version from the tag, builds `OpenSpell-1.1.0.dmg` and publishes it with its checksum on the [Releases](https://github.com/lvanbei/openSpell/releases) page. Tags with a suffix, such as `v1.1.0-beta.1`, become pre-releases.
+[scripts/release.sh](scripts/release.sh) checks that your commit is clean and already on GitHub, then builds and packages `OpenSpell-1.1.0.dmg`. It creates the `v1.1.0` tag and a release with the disk image, its checksum and install notes. A version with a suffix, such as `1.1.0-beta.1`, becomes a pre-release.
 
 ### Signing and notarization
 
-Without extra setup, release builds are signed ad-hoc. To sign them with Developer ID and have Apple notarize them, add these secrets in the repository's Settings › Secrets and variables › Actions:
-
-| Secret                       | Value                                                                                          |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `MACOS_CERTIFICATE_P12`      | Your Developer ID Application certificate and private key, exported as .p12 and base64-encoded |
-| `MACOS_CERTIFICATE_PASSWORD` | The password of the .p12 file                                                                  |
-| `NOTARY_KEY_P8`              | The contents of an App Store Connect API key file (`AuthKey_….p8`) with the Developer role     |
-| `NOTARY_KEY_ID`              | The API key's ID                                                                               |
-| `NOTARY_ISSUER_ID`           | The issuer ID shown above your API keys in App Store Connect › Users and Access › Integrations |
-
-To base64-encode the certificate, run `base64 -i certificate.p12 | pbcopy`. You can also sign and notarize locally with a `notarytool` keychain profile:
+Releases are signed with your Apple Development certificate if you have one, so the Accessibility permission survives updates. They aren't notarized, so users have to click **Open Anyway** on the first launch. To ship a notarized release instead, store your notarization credentials once and sign with a Developer ID certificate:
 
 ```sh
-xcrun notarytool store-credentials openspell   # one-time setup
-export CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
-./scripts/build.sh && NOTARY_PROFILE=openspell ./scripts/package.sh
+xcrun notarytool store-credentials openspell
+CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=openspell ./scripts/release.sh 1.1.0
 ```
 
 ## Developer CLI
@@ -205,5 +193,5 @@ $APP --snapshot /tmp/openspell-snapshots
 | [Resources/Info.plist](Resources/Info.plist)         | App bundle metadata                                                                                              |
 | [scripts/build.sh](scripts/build.sh)                 | Script that builds, signs and installs the app                                                                   |
 | [scripts/package.sh](scripts/package.sh)             | Script that packages the app into a disk image and can sign and notarize it                                      |
-| [.github/workflows/ci.yml](.github/workflows/ci.yml) | CI/CD workflow that builds every push and publishes a release for each version tag                               |
+| [scripts/release.sh](scripts/release.sh)             | Script that builds the app on your Mac and publishes it as a GitHub release                                      |
 | [scripts/make-icon.swift](scripts/make-icon.swift)   | Script that renders the app icon                                                                                 |
