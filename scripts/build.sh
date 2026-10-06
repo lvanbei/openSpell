@@ -33,10 +33,10 @@ fi
 
 echo "› Compiling ($CONFIG)…"
 xcodebuild -scheme OpenSpell -configuration "$CONFIG" \
--destination 'platform=macOS,arch=arm64' \
--derivedDataPath "$DERIVED" \
--skipMacroValidation -skipPackagePluginValidation \
-build > "$ROOT/build.log" 2>&1 || { grep -E "error:" "$ROOT/build.log" | sort -u; echo "Build failed — see build.log"; exit 1; }
+    -destination 'platform=macOS,arch=arm64' \
+    -derivedDataPath "$DERIVED" \
+    -skipMacroValidation -skipPackagePluginValidation \
+    build > "$ROOT/build.log" 2>&1 || { grep -E "error:" "$ROOT/build.log" | sort -u; echo "Build failed — see build.log"; exit 1; }
 
 echo "› Assembling bundle…"
 rm -rf "$APP"
@@ -77,27 +77,4 @@ if [[ "${1:-}" == "--install" ]]; then
     cp -R "$APP" /Applications/
     open /Applications/OpenSpell.app
     echo "✓ Installed to /Applications and launched"
-fi
-  swift "$ROOT/scripts/make-icon.swift" "$ROOT/build/AppIcon.iconset" >/dev/null
-  iconutil -c icns "$ROOT/build/AppIcon.iconset" -o "$ROOT/build/AppIcon.icns"
-fi
-cp "$ROOT/build/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-
-echo "› Signing ($IDENTITY)…"
-SIGN_FLAGS=(--force --deep --sign "$IDENTITY")
-CERT="$(security find-identity -p codesigning -v 2>/dev/null | grep -F -- "$IDENTITY" || true)"
-if [[ "$IDENTITY" != "-" && "$CERT" == *"Developer ID Application"* ]]; then
-  SIGN_FLAGS+=(--options runtime --timestamp)
-fi
-codesign "${SIGN_FLAGS[@]}" "$APP"
-codesign --verify --strict "$APP"
-
-echo "✓ Built $APP"
-
-if [[ "${1:-}" == "--install" ]]; then
-  pkill -x OpenSpell 2>/dev/null || true
-  rm -rf /Applications/OpenSpell.app
-  cp -R "$APP" /Applications/
-  open /Applications/OpenSpell.app
-  echo "✓ Installed to /Applications and launched"
 fi
