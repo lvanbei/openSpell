@@ -9,7 +9,7 @@ public enum GeminiError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .missingAPIKey: "Add a Gemini API key in Settings › Models."
+        case .missingAPIKey: "Add a Gemini API key in \(modelsSettings)."
         case .http(let code, let message): "Gemini error \(code): \(message)"
         case .emptyResponse(let reason):
             "Gemini returned no text" + (reason.map { " (\($0))" } ?? "") + "."

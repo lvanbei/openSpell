@@ -1,6 +1,6 @@
 import SwiftUI
 import Testing
-@testable import OpenSpellCore
+@testable import OpenSpellUI
 
 struct WordDiffTests {
     private typealias Strike = AttributeScopes.SwiftUIAttributes.StrikethroughStyleAttribute

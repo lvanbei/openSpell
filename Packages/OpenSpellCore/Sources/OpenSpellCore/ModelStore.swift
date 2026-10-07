@@ -1,6 +1,13 @@
 import Combine
 import Foundation
 
+/// Where models and keys are managed, for error messages.
+#if os(iOS)
+let modelsSettings = "OpenSpell › Models"
+#else
+let modelsSettings = "Settings › Models"
+#endif
+
 public struct ModelEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// `cloud` = OpenRouter (raw value kept for saved settings), `gemini` = Google Gemini API directly.
     public enum Kind: String, Codable, Sendable { case local, cloud, gemini }
@@ -32,7 +39,7 @@ public enum ModelError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .noModel: "No language model selected. Pick one in Settings › Models."
+        case .noModel: "No language model selected. Pick one in \(modelsSettings)."
         case .notReady(let name): "“\(name)” isn't downloaded yet."
         case .appleSiliconRequired: "On-device models need an Apple silicon Mac."
         }
@@ -100,6 +107,18 @@ public final class ModelStore: ObservableObject {
     private func persist() {
         if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: "models.entries") }
         defaults.set(selectedID, forKey: "models.selected")
+    }
+
+    /// Re-reads saved models and keys without any network calls (the iOS keyboard runs this each time it appears).
+    public func reload() {
+        if let data = defaults.data(forKey: "models.entries"),
+           let saved = try? JSONDecoder().decode([ModelEntry].self, from: data) {
+            entries = saved
+            selectedID = defaults.string(forKey: "models.selected")
+        }
+        hasAPIKey = OpenRouterClient.apiKey?.isEmpty == false
+        hasGeminiKey = GeminiClient.apiKey?.isEmpty == false
+        openRouterFreeTier = defaults.bool(forKey: "openrouter.freeTier")
     }
 
     // MARK: Queries

@@ -21,6 +21,13 @@ public struct Correction: Sendable {
     public let model: ModelEntry
     public let duration: TimeInterval
 
+    public init(original: String, corrected: String, model: ModelEntry, duration: TimeInterval) {
+        self.original = original
+        self.corrected = corrected
+        self.model = model
+        self.duration = duration
+    }
+
     public var hasChanges: Bool { corrected != original }
 }
 

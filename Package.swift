@@ -17,6 +17,7 @@ let package = Package(
             name: "OpenSpell",
             dependencies: [
                 .product(name: "OpenSpellCore", package: "OpenSpellCore"),
+                .product(name: "OpenSpellUI", package: "OpenSpellCore"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "Tokenizers", package: "swift-transformers"),

@@ -1,4 +1,5 @@
 import OpenSpellCore
+import OpenSpellUI
 import SwiftUI
 
 struct TestSettingsView: View {

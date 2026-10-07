@@ -7,7 +7,7 @@ public enum OpenRouterError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .missingAPIKey: "Add an OpenRouter API key in Settings › Models."
+        case .missingAPIKey: "Add an OpenRouter API key in \(modelsSettings)."
         case .http(let code, let message): "OpenRouter error \(code): \(message)"
         case .emptyResponse: "The model returned an empty answer."
         }
@@ -65,9 +65,9 @@ public enum OpenRouterClient {
         guard (200..<300).contains(status) else {
             let message = ((json?["error"] as? [String: Any])?["message"] as? String)
                 ?? String(data: data, encoding: .utf8) ?? "Unknown error"
-            if status == 401 { throw OpenRouterError.http(401, "Invalid API key (\(message)). Check it in Settings › Models.") }
+            if status == 401 { throw OpenRouterError.http(401, "Invalid API key (\(message)). Check it in \(modelsSettings).") }
             if status == 402 {
-                throw OpenRouterError.http(402, "\(model) needs OpenRouter credits. Pick a model marked Free in Settings › Models › Browse models, or add credits.")
+                throw OpenRouterError.http(402, "\(model) needs OpenRouter credits. Pick a model marked Free in \(modelsSettings) › Browse models, or add credits.")
             }
             if status == 429 {
                 throw OpenRouterError.http(429, "\(model) is rate-limited right now (free models are shared). Try again in a moment or pick another model. (\(message))")

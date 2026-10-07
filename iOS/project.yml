@@ -1,0 +1,64 @@
+name: OpenSpell
+options:
+  bundleIdPrefix: app.openspell
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+packages:
+  OpenSpellCore:
+    path: ../Packages/OpenSpellCore
+settings:
+  base:
+    DEVELOPMENT_TEAM: 4QSC7566DR
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_CFBundleDisplayName: OpenSpell
+targets:
+  OpenSpell:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Shared
+    dependencies:
+      - package: OpenSpellCore
+      - package: OpenSpellCore
+        product: OpenSpellUI
+      - target: OpenSpellKeyboard
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.openspell.ios
+        PRODUCT_NAME: OpenSpell
+        CODE_SIGN_ENTITLEMENTS: App/OpenSpell.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+  OpenSpellKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Keyboard
+      - Shared
+    dependencies:
+      - package: OpenSpellCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.openspell.ios.keyboard
+        PRODUCT_NAME: OpenSpellKeyboard
+        INFOPLIST_FILE: Keyboard/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Keyboard/OpenSpellKeyboard.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+schemes:
+  OpenSpell:
+    build:
+      targets:
+        OpenSpell: all
+    run:
+      config: Debug

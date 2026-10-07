@@ -131,7 +131,7 @@ Paste an [OpenRouter](https://openrouter.ai) key. Then browse the catalogue, whi
 
 1. **Trigger.** The shortcut is registered as a Carbon global hotkey. For force clicks, a CGEvent tap reads the trackpad pressure. Once a correction starts, the tap swallows the rest of the press so the app underneath doesn't react.
 2. **Read.** OpenSpell gets the selected text and its position on screen through the Accessibility API. If an app doesn't expose its text, OpenSpell sends ⌘C instead. Chromium and Electron apps are asked to turn on their accessibility tree.
-3. **Correct.** The text goes to the selected model with a proofreading prompt ([CorrectionPrompt.swift](Sources/OpenSpell/Models/CorrectionPrompt.swift)). The temperature is 0, and reasoning is turned off or kept to a minimum. OpenSpell removes think blocks, code fences and wrapping quotes from the output, then restores the original leading and trailing whitespace.
+3. **Correct.** The text goes to the selected model with a proofreading prompt ([CorrectionPrompt.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/CorrectionPrompt.swift)). The temperature is 0, and reasoning is turned off or kept to a minimum. OpenSpell removes think blocks, code fences and wrapping quotes from the output, then restores the original leading and trailing whitespace.
 4. **Write back.** If the original selection was lost, OpenSpell selects it again. It then pastes the fix with ⌘V and restores the clipboard. The temporary clipboard entry is marked so that clipboard managers ignore it.
 
 ## Troubleshooting
@@ -143,6 +143,46 @@ Start with **Settings › Test**. It checks the Accessibility permission, the sh
 - **Force click doesn't trigger.** Turn on "Force Click and haptic feedback" in System Settings › Trackpad. The force click listener also needs the Accessibility permission.
 - **The bubble says "fix copied, press ⌘V".** You switched apps, or the text changed, before the correction finished. The fix is on the clipboard.
 - **OpenRouter returns error 402 or 429.** Error 402 means the model needs credits, and 429 means it's rate-limited. Pick a model marked Free, or try a different model.
+
+## iPhone
+
+On iPhone, OpenSpell is a keyboard with a **Fix** button. In any app, switch to the OpenSpell keyboard with the globe key and tap **Fix**. It corrects the paragraph before the cursor, or only the selection if you selected text. **Undo** puts the original back. The keyboard also has space, delete and return keys; switch back to your usual keyboard to type. The OpenSpell app holds your API keys, settings and history, and has a playground to try a fix.
+
+### Build and run
+
+You need iOS 26 or later, Xcode 26 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+
+```sh
+./scripts/build-ios.sh --install
+```
+
+[scripts/build-ios.sh](scripts/build-ios.sh) generates `iOS/OpenSpell.xcodeproj` from [iOS/project.yml](iOS/project.yml) and builds the app and its keyboard for the iPhone 17 Pro simulator. With `--install`, it also installs and launches the app there. Set `SIMULATOR="iPhone 17"` to use another simulator. Compiler output goes to `build-ios.log`.
+
+To run it on your iPhone, open `iOS/OpenSpell.xcodeproj` in Xcode, select your iPhone and click Run. To sign with another team, change `DEVELOPMENT_TEAM` in `iOS/project.yml`. If the bundle IDs or the App Group `group.app.openspell` aren't available to your team, change them in `project.yml`, both `.entitlements` files and [SharedStorage.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/SharedStorage.swift).
+
+Debug builds have a **Fake corrections** switch in Settings › Debug. It fixes a few common typos without a model, for testing in the Simulator.
+
+### Set up the keyboard
+
+1. Open OpenSpell and follow the setup.
+2. In Settings, go to General › Keyboard › Keyboards › Add New Keyboard and choose **OpenSpell**.
+3. Tap **OpenSpell** in the list of keyboards and turn on **Allow Full Access**.
+4. Add a Gemini or OpenRouter key in the app's **Models** tab.
+
+### Full Access and privacy
+
+The keyboard needs Full Access to reach the network and to read the API key and settings it shares with the app. Without it, the keys still work but **Fix** doesn't.
+
+- The keyboard sends text only when you tap **Fix**. It sends the paragraph before the cursor, or the selection, to Google or OpenRouter. It never records keystrokes.
+- **Fix** is turned off in password, one-time code and credit card fields.
+- API keys are stored in the iOS Keychain, shared by the app and the keyboard.
+- Settings and history stay in the App Group container on your iPhone. You can turn history off or clear it in the app.
+
+### How the keyboard edits text
+
+iOS keyboards see only some of the text around the cursor and can only delete backwards and type. Before reading, OpenSpell moves the cursor by one character and back, so the app reports its current text. After the model answers, it deletes and retypes only the part that changed. If the text changed while the model was working, OpenSpell leaves it alone and copies the fix to the clipboard.
+
+The logic shared by the Mac and iPhone apps lives in [Packages/OpenSpellCore](Packages/OpenSpellCore). The `OpenSpellCore` library only uses Foundation, so the keyboard stays within its small memory limit. Run its tests with `swift test --package-path Packages/OpenSpellCore`.
 
 ## Releases
 
