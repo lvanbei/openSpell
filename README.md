@@ -146,7 +146,9 @@ Start with **Settings › Test**. It checks the Accessibility permission, the sh
 
 ## iPhone
 
-On iPhone, OpenSpell is a keyboard with a **Fix** button. In any app, switch to the OpenSpell keyboard with the globe key and tap **Fix**. It corrects the paragraph before the cursor, or only the selection if you selected text. **Undo** puts the original back. The keyboard also has space, delete and return keys; switch back to your usual keyboard to type. The OpenSpell app holds your API keys, settings and history, and has a playground to try a fix.
+On iPhone, OpenSpell is a keyboard with a **Fix** button. In any app, switch to the OpenSpell keyboard with the globe key and tap **Fix**. It corrects the paragraph before the cursor, or only the selection if you selected text. **Undo** puts the original back. The keyboard also has space, delete and return keys; switch back to your usual keyboard to type. The OpenSpell app holds your settings, API keys and history, and has a playground to try a fix.
+
+Corrections run on the iPhone with Apple Intelligence, or in the cloud with your own Google Gemini or OpenRouter key.
 
 ### Build and run
 
@@ -167,13 +169,19 @@ Debug builds have a **Fake corrections** switch in Settings › Debug. It fixes 
 1. Open OpenSpell and follow the setup.
 2. In Settings, go to General › Keyboard › Keyboards › Add New Keyboard and choose **OpenSpell**.
 3. Tap **OpenSpell** in the list of keyboards and turn on **Allow Full Access**.
-4. Add a Gemini or OpenRouter key in the app's **Models** tab.
+4. In the app's **Models** tab, choose **Apple Intelligence** or add a Gemini or OpenRouter key.
+
+### Apple Intelligence
+
+On an iPhone 15 Pro or later with Apple Intelligence turned on, OpenSpell can use Apple's on-device model. It's free, works offline and keeps your text on the iPhone. A fresh install picks it automatically when Apple Intelligence is on. The Models tab lists the languages it supports; for others, use a cloud model.
+
+The model runs in a system process, so it doesn't count against the keyboard's memory limit. Its context window is small (4,096 tokens on iOS 26), so OpenSpell corrects long text a few paragraphs at a time.
 
 ### Full Access and privacy
 
 The keyboard needs Full Access to reach the network and to read the API key and settings it shares with the app. Without it, the keys still work but **Fix** doesn't.
 
-- The keyboard sends text only when you tap **Fix**. It sends the paragraph before the cursor, or the selection, to Google or OpenRouter. It never records keystrokes.
+- The keyboard reads text only when you tap **Fix**. With Apple Intelligence, the text stays on your iPhone. With a cloud model, the paragraph before the cursor, or the selection, goes to Google or OpenRouter. The keyboard never records keystrokes.
 - **Fix** is turned off in password, one-time code and credit card fields.
 - API keys are stored in the iOS Keychain, shared by the app and the keyboard.
 - Settings and history stay in the App Group container on your iPhone. You can turn history off or clear it in the app.
@@ -182,7 +190,7 @@ The keyboard needs Full Access to reach the network and to read the API key and 
 
 iOS keyboards see only some of the text around the cursor and can only delete backwards and type. Before reading, OpenSpell moves the cursor by one character and back, so the app reports its current text. After the model answers, it deletes and retypes only the part that changed. If the text changed while the model was working, OpenSpell leaves it alone and copies the fix to the clipboard.
 
-The logic shared by the Mac and iPhone apps lives in [Packages/OpenSpellCore](Packages/OpenSpellCore). The `OpenSpellCore` library only uses Foundation, so the keyboard stays within its small memory limit. Run its tests with `swift test --package-path Packages/OpenSpellCore`.
+The logic shared by the Mac and iPhone apps lives in [Packages/OpenSpellCore](Packages/OpenSpellCore). The `OpenSpellCore` library only uses Foundation, plus FoundationModels on iOS, so the keyboard stays within its small memory limit. Run its tests with `swift test --package-path Packages/OpenSpellCore`.
 
 ## Releases
 

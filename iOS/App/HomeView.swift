@@ -62,7 +62,7 @@ struct ModelStatusRow: View {
             Label {
                 VStack(alignment: .leading) {
                     Text(model.displayName)
-                    Text(model.kind == .gemini ? "Google Gemini" : "OpenRouter").font(.footnote).foregroundStyle(.secondary)
+                    Text(provider(of: model)).font(.footnote).foregroundStyle(.secondary)
                 }
             } icon: {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -71,12 +71,27 @@ struct ModelStatusRow: View {
             Label {
                 VStack(alignment: .leading) {
                     Text("No model ready")
-                    Text("Add a Gemini or OpenRouter key in Models.").font(.footnote).foregroundStyle(.secondary)
+                    Text(hint).font(.footnote).foregroundStyle(.secondary)
                 }
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             }
         }
+    }
+
+    private func provider(of model: ModelEntry) -> String {
+        switch model.kind {
+        case .apple: "On this iPhone"
+        case .gemini: "Google Gemini"
+        default: "OpenRouter"
+        }
+    }
+
+    private var hint: String {
+        let apple = AppleIntelligence.status
+        if store.selected?.kind == .apple, let reason = apple.message { return reason }
+        return apple == .deviceNotEligible ? "Add a Gemini or OpenRouter key in Models."
+                                           : "Choose Apple Intelligence or add a key in Models."
     }
 }
 

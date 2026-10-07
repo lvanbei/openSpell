@@ -10,6 +10,9 @@ public enum CorrectionError: LocalizedError, Equatable {
         case .tooLong: "Selection is too long (max \(CorrectionService.maxCharacters) characters)"
         case .modelNotReady(.cloud): "Add your OpenRouter API key"
         case .modelNotReady(.gemini): "Add your Gemini API key"
+        #if os(iOS)
+        case .modelNotReady(.apple): AppleIntelligence.status.message ?? "Apple Intelligence isn't ready"
+        #endif
         case .modelNotReady: "Choose a language model first"
         }
     }
@@ -49,10 +52,18 @@ public enum CorrectionService {
     public static func correct(_ text: String, language: CorrectionLanguage) async throws -> Correction {
         let model = try readyModel(for: text)
         let started = Date()
+        let corrected = try await correctedText(text, language: language, model: model)
+        try Task.checkCancellation()
+        return Correction(original: text, corrected: corrected, model: model, duration: Date().timeIntervalSince(started))
+    }
+
+    private static func correctedText(_ text: String, language: CorrectionLanguage, model: ModelEntry) async throws -> String {
+        #if os(iOS)
+        // The on-device model's context window is small, so it splits long text itself.
+        if model.kind == .apple { return try await AppleIntelligence.correct(text, language: language) }
+        #endif
         let raw = try await ModelStore.shared.complete(system: CorrectionPrompt.system(language: language),
                                                        user: CorrectionPrompt.user(text))
-        try Task.checkCancellation()
-        return Correction(original: text, corrected: CorrectionPrompt.postProcess(raw, original: text),
-                          model: model, duration: Date().timeIntervalSince(started))
+        return CorrectionPrompt.postProcess(raw, original: text)
     }
 }

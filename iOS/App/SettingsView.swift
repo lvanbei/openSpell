@@ -63,6 +63,7 @@ struct SettingsView: View {
 
     static let privacy = """
     Text leaves your iPhone only when you tap Fix, and only goes to the model provider you chose. \
+    With Apple Intelligence, it never leaves your iPhone. \
     OpenSpell doesn't log or keep what you type, except the corrections in History when it's on. \
     API keys are stored in the iOS Keychain.
     """

@@ -10,7 +10,13 @@ let modelsSettings = "Settings › Models"
 
 public struct ModelEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// `cloud` = OpenRouter (raw value kept for saved settings), `gemini` = Google Gemini API directly.
-    public enum Kind: String, Codable, Sendable { case local, cloud, gemini }
+    public enum Kind: String, Codable, Sendable {
+        case local, cloud, gemini
+        #if os(iOS)
+        /// Apple Intelligence's on-device model.
+        case apple
+        #endif
+    }
     public var kind: Kind
     /// Hugging Face repo id (local), OpenRouter slug (cloud) or Gemini model id (gemini).
     public var repo: String
@@ -53,6 +59,9 @@ public final class ModelStore: ObservableObject {
     static let defaultCloud = ModelEntry(kind: .cloud, repo: "google/gemini-2.5-flash", displayName: "gemini-2.5-flash")
     /// Used only when the model list can't be fetched; normally the newest Flash model is discovered from the key.
     static let defaultGemini = ModelEntry(kind: .gemini, repo: GeminiClient.fallbackModel, displayName: GeminiClient.fallbackModel)
+    #if os(iOS)
+    public static let appleIntelligence = ModelEntry(kind: .apple, repo: "system", displayName: "Apple Intelligence")
+    #endif
 
     @Published public private(set) var entries: [ModelEntry] = []
     @Published public private(set) var selectedID: String?
@@ -95,6 +104,14 @@ public final class ModelStore: ObservableObject {
         } else {
             entries = [Self.defaultCloud]
             selectedID = Self.defaultCloud.id
+            #if os(iOS)
+            // Fresh install: start with the on-device model when Apple Intelligence is on (or still downloading).
+            if [.available, .notReady].contains(AppleIntelligence.status) {
+                entries.insert(Self.appleIntelligence, at: 0)
+                selectedID = Self.appleIntelligence.id
+                persist()
+            }
+            #endif
         }
         // Learn whether the OpenRouter key is free tier (switches paid OpenRouter picks to a free model).
         if hasAPIKey { Task { await refreshOpenRouterTier() } }
@@ -146,6 +163,9 @@ public final class ModelStore: ObservableObject {
         case .local: state(of: entry) == .ready
         case .cloud: hasAPIKey
         case .gemini: hasGeminiKey
+        #if os(iOS)
+        case .apple: AppleIntelligence.status == .available
+        #endif
         }
     }
 
@@ -164,6 +184,13 @@ public final class ModelStore: ObservableObject {
             Task.detached { await runtime.unload() }
         }
     }
+
+    #if os(iOS)
+    public func useAppleIntelligence() {
+        if !entries.contains(Self.appleIntelligence) { entries.append(Self.appleIntelligence) }
+        select(Self.appleIntelligence)
+    }
+    #endif
 
     /// Saves the OpenRouter key. On a free-tier key, makes sure a free model is added and used.
     public func saveAPIKey(_ key: String) async {
@@ -399,6 +426,10 @@ public final class ModelStore: ObservableObject {
                 directory: Self.directory(for: entry.repo),
                 extraEOSTokens: Self.extraEOSTokens(for: entry.repo),
                 system: system, user: user)
+        #if os(iOS)
+        case .apple:
+            return try await AppleIntelligence.respond(system: system, user: user)
+        #endif
         }
     }
 

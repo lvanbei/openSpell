@@ -61,7 +61,7 @@ private struct WelcomeStep: View {
             Section {
                 Label("Fixes the selection, or the text before the cursor.", systemImage: "character.cursor.ibeam")
                 Label("Only fixes mistakes. It never rewrites or translates.", systemImage: "checkmark.seal")
-                Label("Use Google Gemini or any OpenRouter model with your own key.", systemImage: "cloud")
+                Label("Use Apple Intelligence on your iPhone, or Gemini or OpenRouter with your own key.", systemImage: "cpu")
                 Label("A history of every fix, so you can go back.", systemImage: "clock.arrow.circlepath")
             }
         }
@@ -89,7 +89,8 @@ private struct KeyboardStep: View {
                 Text("""
                 Without it, iOS doesn't let a keyboard use the network or read the settings you choose here, \
                 so it can't reach your model. OpenSpell sends text only when you tap Fix, and only to the \
-                provider you choose. It doesn't log or keep what you type.
+                provider you choose. With Apple Intelligence, it stays on your iPhone. \
+                OpenSpell doesn't log or keep what you type.
                 """)
                 .font(.footnote)
             }
@@ -104,7 +105,14 @@ private struct ModelStep: View {
     var body: some View {
         Form {
             StepHeader(symbol: "brain", title: "Choose a language model",
-                       subtitle: "Paste an API key. You can change this any time in Models.")
+                       subtitle: "Use Apple Intelligence, or paste an API key. You can change this any time in Models.")
+            Section {
+                AppleIntelligenceRow()
+            } header: {
+                Text("On this iPhone")
+            } footer: {
+                AppleIntelligenceFooter()
+            }
             Section {
                 KeyField(provider: .gemini)
             } header: {

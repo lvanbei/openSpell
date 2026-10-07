@@ -36,4 +36,28 @@ public enum CorrectionLanguage: String, CaseIterable, Identifiable, Codable, Sen
         default: rawValue.capitalized
         }
     }
+
+    /// ISO 639-1 code, or nil for auto-detect.
+    public var code: String? {
+        switch self {
+        case .auto: nil
+        case .english: "en"
+        case .chinese: "zh"
+        case .hindi: "hi"
+        case .spanish: "es"
+        case .french: "fr"
+        case .arabic: "ar"
+        case .portuguese: "pt"
+        case .russian: "ru"
+        case .indonesian: "id"
+        case .german: "de"
+        case .japanese: "ja"
+        case .turkish: "tr"
+        case .korean: "ko"
+        case .vietnamese: "vi"
+        case .italian: "it"
+        case .dutch: "nl"
+        case .polish: "pl"
+        }
+    }
 }

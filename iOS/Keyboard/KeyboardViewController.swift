@@ -113,7 +113,7 @@ final class KeyboardViewController: UIInputViewController {
             } catch let error as URLError where error.code == .cancelled {
                 status = .idle
             } catch let error as CorrectionError {
-                status = .error(error == .tooLong ? error.localizedDescription
+                status = .error(error == .tooLong || error == .modelNotReady(.apple) ? error.localizedDescription
                                 : "\(error.localizedDescription) in the OpenSpell app")
             } catch {
                 status = .error(error.localizedDescription)
@@ -297,7 +297,10 @@ final class KeyboardViewController: UIInputViewController {
     private var idleHint: String {
         guard hasFullAccess else { return "Allow Full Access to fix text" }
         let store = ModelStore.shared
-        guard let model = store.selected, store.isReady(model) else { return "Choose a model in the OpenSpell app" }
+        guard let model = store.selected, store.isReady(model) else {
+            if store.selected?.kind == .apple, let reason = AppleIntelligence.status.message { return reason }
+            return "Choose a model in the OpenSpell app"
+        }
         return "\(SharedSettings.shared.language.flag) \(model.displayName)"
     }
 

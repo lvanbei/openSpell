@@ -5,19 +5,27 @@ import SwiftUI
 struct ModelsView: View {
     @ObservedObject private var store = ModelStore.shared
 
-    private var entries: [ModelEntry] { store.entries.filter { $0.kind != .local } }
+    private var entries: [ModelEntry] { store.entries.filter { $0.kind == .cloud || $0.kind == .gemini } }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
+                    AppleIntelligenceRow()
+                } header: {
+                    Text("On this iPhone")
+                } footer: {
+                    AppleIntelligenceFooter()
+                }
+
+                Section {
                     if entries.isEmpty {
-                        Text("No models yet. Add a key below.").foregroundStyle(.secondary)
+                        Text("No cloud models yet. Add a key below.").foregroundStyle(.secondary)
                     }
                     ForEach(entries) { ModelRow(entry: $0) }
                         .onDelete { offsets in offsets.map { entries[$0] }.forEach(store.remove) }
                 } header: {
-                    Text("Your models")
+                    Text("Cloud models")
                 } footer: {
                     Text("Fixes use the checked model. Tap another ready model to switch.")
                 }
@@ -79,6 +87,46 @@ private struct ModelRow: View {
                     Label("Needs key", systemImage: "key").font(.footnote).foregroundStyle(.orange)
                 }
             }
+        }
+    }
+}
+
+/// Apple's on-device model: checked when in use, otherwise says why it can't be used.
+struct AppleIntelligenceRow: View {
+    @ObservedObject private var store = ModelStore.shared
+
+    var body: some View {
+        let status = AppleIntelligence.status
+        let selected = store.selected?.kind == .apple
+        Button {
+            if status == .available { store.useAppleIntelligence() }
+        } label: {
+            HStack {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selected ? Color.accentColor : .secondary)
+                VStack(alignment: .leading) {
+                    Text("Apple Intelligence").foregroundStyle(.primary)
+                    Text(status.message ?? "On device · Free · Works offline")
+                        .font(.footnote).foregroundStyle(status == .available ? .secondary : Color.orange)
+                }
+            }
+        }
+    }
+}
+
+struct AppleIntelligenceFooter: View {
+    private var languages: String {
+        let names = AppleIntelligence.languageCodes.compactMap { Locale.current.localizedString(forLanguageCode: $0) }
+        return Set(names).sorted().formatted(.list(type: .and))
+    }
+
+    var body: some View {
+        if AppleIntelligence.status == .deviceNotEligible {
+            Text("Apple Intelligence needs an iPhone 15 Pro or later.")
+        } else if languages.isEmpty {
+            Text("Your text stays on your iPhone.")
+        } else {
+            Text("Your text stays on your iPhone. It works with \(languages).")
         }
     }
 }
