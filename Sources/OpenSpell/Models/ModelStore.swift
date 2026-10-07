@@ -100,10 +100,11 @@ final class ModelStore: ObservableObject {
         if let data = defaults.data(forKey: "models.entries"),
            let saved = try? JSONDecoder().decode([ModelEntry].self, from: data) {
             entries = saved
+            selectedID = defaults.string(forKey: "models.selected")
         } else {
             entries = [Self.defaultCloud]
+            selectedID = Self.defaultCloud.id
         }
-        selectedID = defaults.string(forKey: "models.selected") ?? entries.first?.id
         // Learn whether the OpenRouter key is free tier (switches paid OpenRouter picks to a free model).
         if hasAPIKey { Task { await refreshOpenRouterTier() } }
         for entry in entries where entry.kind == .local {
@@ -193,22 +194,27 @@ final class ModelStore: ObservableObject {
         if let catalog = try? await OpenRouterClient.catalog(), !catalog.isEmpty { openRouterCatalog = catalog }
     }
 
-    /// Adds the recommended free model if there's no free OpenRouter model yet, and switches
-    /// away from a paid OpenRouter model (which can't run on a free-tier key).
+    /// A free-tier key can't run paid OpenRouter models, so a paid pick is swapped for a free model
+    /// (never the openrouter/free router). Does nothing unless an OpenRouter model is selected.
     func ensureFreeOpenRouterModel() async {
+        guard selected?.kind == .cloud else { return }
         if openRouterCatalog.isEmpty { await refreshOpenRouterCatalog() }
-        var free = entries.first(where: isFreeOpenRouter)
-        if free == nil, let pick = OpenRouterClient.recommendedFree(from: openRouterCatalog) {
-            let entry = ModelEntry(kind: .cloud, repo: pick.id, displayName: pick.name)
-            entries.append(entry)
-            persist()
-            free = entry
-        }
-        if let free, let current = selected, current.kind == .cloud, !isFreeOpenRouter(current) {
+        guard let current = selected, current.kind == .cloud, !isFreeOpenRouter(current) else { return }
+        if let free = entries.first(where: { isFreeOpenRouter($0) && $0.repo != "openrouter/free" }) {
             select(free)
-        } else if let free, selected.map(isReady) != true {
-            select(free)
+        } else if let pick = OpenRouterClient.recommendedFree(from: openRouterCatalog) {
+            addOpenRouter(pick)
         }
+    }
+
+    /// Switches to an OpenRouter model (the first one added, else the default) unless one is in use.
+    func useOpenRouter() async {
+        if selected?.kind != .cloud {
+            let cloud = entries.first { $0.kind == .cloud } ?? Self.defaultCloud
+            if !entries.contains(cloud) { entries.append(cloud) }
+            select(cloud)
+        }
+        if openRouterFreeTier { await ensureFreeOpenRouterModel() }
     }
 
     /// Adds a model picked from the catalogue browser and selects it.
@@ -363,7 +369,7 @@ final class ModelStore: ObservableObject {
             Task.detached { await LocalLLM.shared.unload() }
         }
         entries.removeAll { $0.id == entry.id }
-        if selectedID == entry.id { selectedID = entries.first(where: isReady)?.id ?? entries.first?.id }
+        if selectedID == entry.id { selectedID = nil }
         persist()
     }
 

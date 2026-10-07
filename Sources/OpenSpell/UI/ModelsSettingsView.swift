@@ -16,7 +16,27 @@ struct ModelsSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(text: "Recommended on-device models")
+                SectionHeader(text: "Your models")
+                if store.selected == nil, !store.entries.isEmpty {
+                    Label("No model selected — click one below. Corrections won't run until you do.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12)).foregroundStyle(.orange)
+                }
+                SettingsCard {
+                    if store.entries.isEmpty {
+                        Text("No models yet — download or add one below.")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, minHeight: 60)
+                    }
+                    ForEach(Array(store.entries.enumerated()), id: \.element.id) { index, entry in
+                        if index > 0 { RowDivider() }
+                        addedRow(entry)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                Caption("Corrections use the model marked “In use”. Click another ready model to switch.")
+
+                SectionHeader(text: "Recommended on-device models").padding(.top, 12)
                 SettingsCard {
                     ForEach(Array(ModelStore.recommended.enumerated()), id: \.element.id) { index, model in
                         if index > 0 { RowDivider() }
@@ -158,23 +178,6 @@ struct ModelsSettingsView: View {
                         Label("Browse models", systemImage: "arrow.up.forward.square")
                     }.font(.system(size: 12))
                 }
-
-                // MARK: Added models
-                Divider().padding(.vertical, 12)
-
-                SectionHeader(text: "Added models")
-                SettingsCard {
-                    if store.entries.isEmpty {
-                        Text("No models yet — download or add one above.")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, minHeight: 60)
-                    }
-                    ForEach(Array(store.entries.enumerated()), id: \.element.id) { index, entry in
-                        if index > 0 { RowDivider() }
-                        addedRow(entry)
-                    }
-                }
-                Caption("Click a ready model to use it for corrections.")
             }
             .padding(20)
         }
@@ -224,15 +227,19 @@ struct ModelsSettingsView: View {
     @ViewBuilder
     private func addedRow(_ entry: ModelEntry) -> some View {
         let isSelected = store.selectedID == entry.id
+        let isReady = store.isReady(entry)
         HStack(spacing: 12) {
-            Image(systemName: icon(for: entry.kind))
-                .font(.system(size: 18)).foregroundStyle(.secondary).frame(width: 30)
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 18))
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .opacity(isSelected || isReady ? 1 : 0.35)
+                .frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(entry.displayName).font(.system(size: 14, weight: .semibold))
                     badge(for: entry.kind)
                     if store.isFreeOpenRouter(entry) { Pill(text: "Free") }
-                    if isSelected { Pill(text: "Selected", color: .accentColor) }
+                    if isSelected { Pill(text: "In use", color: .accentColor) }
                 }
                 Text(entry.repo).font(.system(size: 12)).foregroundStyle(.secondary)
             }
@@ -245,16 +252,9 @@ struct ModelsSettingsView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
-        .background(isSelected ? Color.accentColor.opacity(0.08) : .clear)
-        .onTapGesture { if store.isReady(entry) { store.select(entry) } }
-    }
-
-    private func icon(for kind: ModelEntry.Kind) -> String {
-        switch kind {
-        case .local: "internaldrive"
-        case .cloud: "cloud"
-        case .gemini: "sparkle"
-        }
+        .background(isSelected ? Color.accentColor.opacity(0.14) : .clear)
+        .onTapGesture { if isReady { store.select(entry) } }
+        .help(isReady && !isSelected ? "Click to use this model for corrections" : "")
     }
 
     @ViewBuilder
@@ -270,9 +270,7 @@ struct ModelsSettingsView: View {
     private func statusView(for entry: ModelEntry, compact: Bool) -> some View {
         switch entry.kind {
         case .cloud, .gemini:
-            if store.isReady(entry) {
-                Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 13, weight: .medium))
-            } else {
+            if !store.isReady(entry) {
                 Label(entry.kind == .gemini ? "Needs Gemini key" : "Needs API key", systemImage: "key")
                     .foregroundStyle(.orange).font(.system(size: 12))
             }
@@ -288,10 +286,11 @@ struct ModelsSettingsView: View {
                         .buttonStyle(.borderless).foregroundStyle(.secondary).help("Cancel download")
                 }
             case .ready:
-                if compact, store.selectedID != entry.id {
+                if compact, store.selectedID == entry.id {
+                    Label("In use", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(Color.accentColor).font(.system(size: 13, weight: .medium))
+                } else if compact {
                     Button("Use") { store.select(entry) }
-                } else {
-                    Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 13, weight: .medium))
                 }
             case .notDownloaded:
                 Button(compact ? "Download" : "Resume") { store.downloadLocal(repo: entry.repo) }

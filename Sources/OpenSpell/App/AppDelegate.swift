@@ -5,6 +5,7 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var shortcutMenuItem: NSMenuItem!
+    private var modelMenuItem: NSMenuItem!
     private var cancellables = Set<AnyCancellable>()
 
     let settings = AppSettings.shared
@@ -122,7 +123,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("History…", #selector(openHistory), key: "h"))
         menu.addItem(.separator())
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
-        menu.addItem(item("Language Models…", #selector(openModels)))
+        modelMenuItem = item("", #selector(openModels))
+        updateModelMenuTitle()
+        menu.addItem(modelMenuItem)
         shortcutMenuItem = item("", #selector(openShortcut))
         updateShortcutMenuTitle(settings.hotKey)
         menu.addItem(shortcutMenuItem)
@@ -143,6 +146,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateShortcutMenuTitle(_ combo: KeyCombo?) {
         shortcutMenuItem?.title = "Keyboard shortcut: \(combo?.displayString ?? "None")…"
+    }
+
+    private func updateModelMenuTitle() {
+        let store = ModelStore.shared
+        let name = store.selected.map { store.isReady($0) ? $0.displayName : "\($0.displayName) (not ready)" }
+        modelMenuItem?.title = "Language model: \(name ?? "None")…"
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        updateModelMenuTitle()
     }
 
     @objc private func openHistory() { windows.showHistory() }

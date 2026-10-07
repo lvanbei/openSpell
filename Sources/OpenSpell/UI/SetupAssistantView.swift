@@ -215,10 +215,7 @@ private struct ModelStep: View {
                         Button("Save & Use") {
                             Task {
                                 await store.saveAPIKey(apiKey)
-                                // Free-tier keys already switched to a free model; otherwise use the best OpenRouter entry.
-                                if store.selected?.kind != .cloud, let cloud = store.entries.first(where: { $0.kind == .cloud }) {
-                                    store.select(cloud)
-                                }
+                                await store.useOpenRouter()
                             }
                         }
                         .disabled(apiKey.trimmingCharacters(in: .whitespaces).isEmpty)

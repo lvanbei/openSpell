@@ -133,8 +133,8 @@ enum OpenRouterClient {
         }
     }
 
-    /// Best free model for proofreading: a general-purpose instruct model from a well-known family,
-    /// else OpenRouter's own free router.
+    /// Best free model for proofreading: a general-purpose instruct model, preferably from a well-known
+    /// family. Never OpenRouter's own free router, which answers with a different model each time.
     static func recommendedFree(from catalog: [CatalogModel]) -> CatalogModel? {
         let unsuitable = ["safety", "guard", "code", "coder", "reasoning", "omni", "vision", "math"]
         let families = ["google/gemma", "meta-llama/", "mistralai/", "qwen/", "nvidia/nemotron", "deepseek/"]
@@ -146,7 +146,7 @@ enum OpenRouterClient {
             let inFamily = candidates.filter { $0.id.hasPrefix(family) }
             if let best = inFamily.max(by: { parameterSize($0.id) < parameterSize($1.id) }) { return best }
         }
-        return catalog.first { $0.id == "openrouter/free" } ?? candidates.first
+        return candidates.first
     }
 
     /// Rough parameter count from ids like "gemma-4-31b-it" → 31.
