@@ -2,6 +2,7 @@ import Combine
 import SwiftUI
 
 struct AboutSettingsView: View {
+    @ObservedObject private var updater = Updater.shared
     @State private var axTrusted = AccessibilityPermission.isTrusted
     private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -39,9 +40,47 @@ struct AboutSettingsView: View {
                 .buttonStyle(.bordered)
             }
             .padding(20)
+            Divider()
+            SettingsRow(symbol: "arrow.down.circle", color: .blue, title: "Software update", subtitle: updateMessage) {
+                updateControls
+            }
         }
         .padding(20)
         .frame(width: 640)
         .onReceive(poll) { _ in axTrusted = AccessibilityPermission.isTrusted }
+    }
+
+    private var updateMessage: String {
+        let new = updater.update?.version ?? ""
+        return switch updater.status {
+        case .idle: "Checks GitHub for a newer version of OpenSpell."
+        case .checking: "Checking GitHub…"
+        case .upToDate: "You have the latest version."
+        case .available: "OpenSpell \(new) is available. You have \(Updater.currentVersion)."
+        case .downloading(let p): "Downloading OpenSpell \(new)… \(Int(p * 100)) %"
+        case .installing: "Installing OpenSpell \(new). It relaunches when it's done."
+        case .failed(let message): message
+        }
+    }
+
+    @ViewBuilder
+    private var updateControls: some View {
+        switch updater.status {
+        case .checking, .installing:
+            ProgressView().controlSize(.small)
+        case .downloading(let p):
+            ProgressView(value: p).frame(width: 150)
+        default:
+            if let update = updater.update {
+                HStack {
+                    Button("Release Notes") { NSWorkspace.shared.open(update.page) }
+                    Button("Download and Install") { updater.install() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .fixedSize()
+            } else {
+                Button("Check for Updates") { updater.check() }
+            }
+        }
     }
 }

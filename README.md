@@ -14,6 +14,8 @@ You can run corrections on your Mac with [MLX](https://github.com/ml-explore/mlx
 2. Open it and drag **OpenSpell** to **Applications**.
 3. Open OpenSpell from Applications. Releases are signed with a Developer ID and notarized by Apple, so macOS opens them without a warning.
 
+To update, open **Settings › About** and click **Check for Updates**. If GitHub has a newer release, **Download and Install** downloads it, checks its checksum and Developer ID signature, replaces the app and relaunches it.
+
 OpenSpell needs macOS 15 or later on an Apple silicon Mac. To build it yourself, see [Build from source](#build-from-source).
 
 ## Features
@@ -85,6 +87,7 @@ To open Settings or History, click the menu bar icon.
 | Shortcut | Record a different global shortcut                                                                                                         |
 | Models   | Download on-device models, add API keys, and browse and choose cloud models                                                                |
 | Test     | Run a health check, test the triggers, run an end-to-end correction in TextEdit, or try the playground                                     |
+| About    | See the version and check GitHub for updates                                                                                               |
 
 ## Models
 

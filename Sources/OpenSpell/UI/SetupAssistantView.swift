@@ -140,8 +140,8 @@ private struct ModelStep: View {
     @State private var geminiKey = GeminiClient.apiKey ?? ""
 
     var body: some View {
-        let qwen = ModelStore.recommended[0]
-        let qwenEntry = store.entry(forRepo: qwen.repo, kind: .local)
+        let model = ModelStore.recommended.first { $0.repo == "mlx-community/gemma-3n-E4B-it-lm-4bit" } ?? ModelStore.recommended[0]
+        let modelEntry = store.entry(forRepo: model.repo, kind: .local)
 
         VStack(spacing: 20) {
             StepHeader(symbol: "brain", color: .pink, title: "Choose a language model",
@@ -151,23 +151,23 @@ private struct ModelStep: View {
                 HStack(spacing: 12) {
                     Image(systemName: "internaldrive").font(.title2).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack { Text("On-device: \(qwen.name)").bold(); Pill(text: qwen.size) }
+                        HStack { Text("On-device: \(model.name)").bold(); Pill(text: model.size) }
                         Caption("Private, free and offline. Needs Apple silicon.")
                     }
                     Spacer()
-                    if let qwenEntry {
-                        switch store.state(of: qwenEntry) {
+                    if let modelEntry {
+                        switch store.state(of: modelEntry) {
                         case .downloading(let p): ProgressView(value: p).frame(width: 120)
                         case .ready:
-                            if store.selectedID == qwenEntry.id {
+                            if store.selectedID == modelEntry.id {
                                 Label("Selected", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                             } else {
-                                Button("Use") { store.select(qwenEntry) }
+                                Button("Use") { store.select(modelEntry) }
                             }
-                        default: Button("Download") { store.downloadLocal(repo: qwen.repo, displayName: qwen.name) }
+                        default: Button("Download") { store.downloadLocal(repo: model.repo, displayName: model.name) }
                         }
                     } else {
-                        Button("Download") { store.downloadLocal(repo: qwen.repo, displayName: qwen.name) }
+                        Button("Download") { store.downloadLocal(repo: model.repo, displayName: model.name) }
                             .disabled(!ModelStore.isAppleSilicon)
                     }
                 }
