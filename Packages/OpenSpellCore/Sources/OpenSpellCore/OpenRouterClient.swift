@@ -1,11 +1,11 @@
 import Foundation
 
-enum OpenRouterError: LocalizedError {
+public enum OpenRouterError: LocalizedError {
     case missingAPIKey
     case http(Int, String)
     case emptyResponse
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .missingAPIKey: "Add an OpenRouter API key in Settings › Models."
         case .http(let code, let message): "OpenRouter error \(code): \(message)"
@@ -15,13 +15,13 @@ enum OpenRouterError: LocalizedError {
 }
 
 /// Thin client for OpenRouter's OpenAI-compatible chat completions API.
-enum OpenRouterClient {
+public enum OpenRouterClient {
     static let keychainAccount = "openrouter-api-key"
     private static let base = URL(string: "https://openrouter.ai/api/v1")!
 
-    static var apiKey: String? { Keychain.get(keychainAccount) }
+    public static var apiKey: String? { Keychain.get(keychainAccount) }
 
-    static func complete(model: String, system: String, user: String, apiKey overrideKey: String? = nil) async throws -> String {
+    public static func complete(model: String, system: String, user: String, apiKey overrideKey: String? = nil) async throws -> String {
         guard let key = overrideKey ?? apiKey, !key.isEmpty else { throw OpenRouterError.missingAPIKey }
         do {
             return try await send(model: model, system: system, user: user, key: key, mustReason: false)
@@ -88,23 +88,23 @@ enum OpenRouterClient {
     struct ModelInfo { let id: String; let name: String }
 
     /// A model from OpenRouter's public catalogue.
-    struct CatalogModel: Identifiable, Hashable {
-        let id: String
-        let name: String
-        let contextLength: Int
+    public struct CatalogModel: Identifiable, Hashable {
+        public let id: String
+        public let name: String
+        public let contextLength: Int
         /// USD per token.
-        let promptPrice: Double
-        let completionPrice: Double
+        public let promptPrice: Double
+        public let completionPrice: Double
 
-        var isFree: Bool { promptPrice == 0 && completionPrice == 0 }
+        public var isFree: Bool { promptPrice == 0 && completionPrice == 0 }
 
         /// "$0.10 / $0.40 per M tokens" style summary.
-        var priceLabel: String {
+        public var priceLabel: String {
             if isFree { return "Free" }
             return String(format: "$%.2g / $%.2g per M", promptPrice * 1_000_000, completionPrice * 1_000_000)
         }
 
-        var contextLabel: String {
+        public var contextLabel: String {
             contextLength >= 1_000_000 ? "\(contextLength / 1_000_000)M ctx" : "\(contextLength / 1000)K ctx"
         }
     }
@@ -135,7 +135,7 @@ enum OpenRouterClient {
 
     /// Best free model for proofreading: a general-purpose instruct model, preferably from a well-known
     /// family. Never OpenRouter's own free router, which answers with a different model each time.
-    static func recommendedFree(from catalog: [CatalogModel]) -> CatalogModel? {
+    public static func recommendedFree(from catalog: [CatalogModel]) -> CatalogModel? {
         let unsuitable = ["safety", "guard", "code", "coder", "reasoning", "omni", "vision", "math"]
         let families = ["google/gemma", "meta-llama/", "mistralai/", "qwen/", "nvidia/nemotron", "deepseek/"]
         let candidates = catalog.filter { m in
@@ -155,13 +155,13 @@ enum OpenRouterClient {
         return Double(id[r].dropLast()) ?? 0
     }
 
-    struct KeyInfo {
-        let label: String?
-        let usage: Double?
-        let limit: Double?
-        let isFreeTier: Bool
+    public struct KeyInfo {
+        public let label: String?
+        public let usage: Double?
+        public let limit: Double?
+        public let isFreeTier: Bool
 
-        var summary: String {
+        public var summary: String {
             var parts: [String] = []
             if let label, !label.isEmpty { parts.append("“\(label)”") }
             if let limit, let usage {
@@ -175,7 +175,7 @@ enum OpenRouterClient {
     }
 
     /// Validates a key without spending credits (GET /key).
-    static func checkKey(_ key: String) async throws -> KeyInfo {
+    public static func checkKey(_ key: String) async throws -> KeyInfo {
         var request = URLRequest(url: base.appending(path: "key"))
         request.timeoutInterval = 20
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")

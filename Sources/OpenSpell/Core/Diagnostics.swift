@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Combine
+import OpenSpellCore
 
 /// Powers the Settings › Test tab: automatic health checks, live trigger tests,
 /// and a real end-to-end correction inside TextEdit.

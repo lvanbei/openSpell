@@ -1,7 +1,7 @@
 import Foundation
 
-enum CorrectionPrompt {
-    static func system(language: CorrectionLanguage) -> String {
+public enum CorrectionPrompt {
+    public static func system(language: CorrectionLanguage) -> String {
         var s = """
         You are a proofreading function embedded in a text editor, not a chat assistant.
         The user message contains text between <text> and </text>. Your output is that SAME text, with only its spelling mistakes, typos, grammar, agreement, conjugation, punctuation and capitalization fixed.
@@ -30,10 +30,10 @@ enum CorrectionPrompt {
         return s
     }
 
-    static func user(_ text: String) -> String { "<text>\(text)</text>" }
+    public static func user(_ text: String) -> String { "<text>\(text)</text>" }
 
     /// Cleans common LLM artifacts and restores the original's surrounding whitespace.
-    static func postProcess(_ output: String, original: String) -> String {
+    public static func postProcess(_ output: String, original: String) -> String {
         var out = output
 
         // Strip reasoning blocks from "thinking" models.

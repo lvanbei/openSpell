@@ -1,4 +1,5 @@
 import AppKit
+import OpenSpellCore
 
 // Hidden developer CLI (used for smoke tests):
 //   OpenSpell --download <hf-repo>

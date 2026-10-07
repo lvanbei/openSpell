@@ -1,4 +1,5 @@
 import AppKit
+import OpenSpellCore
 
 /// Orchestrates one correction: read selection → show bubble → ask the model → write back → log.
 @MainActor
@@ -27,8 +28,6 @@ final class CorrectionEngine {
 
     private(set) var isRunning = false
     private var task: Task<Void, Never>?
-
-    static let maxCharacters = 12_000
 
     func trigger(source: Source) {
         guard !isRunning else { NSSound.beep(); return }
@@ -64,37 +63,30 @@ final class CorrectionEngine {
         }
         var outcome = Outcome(status: .noSelection, original: snapshot.text, appName: snapshot.app?.localizedName)
 
-        guard snapshot.text.count <= Self.maxCharacters else {
-            let message = "Selection is too long (max \(Self.maxCharacters) characters)"
-            Bubble.shared.flash(.info(message), anchor: snapshot.screenRect)
-            outcome.status = .failed(message)
-            return outcome
-        }
-
-        let store = ModelStore.shared
-        guard let model = store.selected, store.isReady(model) else {
-            let message = switch store.selected?.kind {
-            case .cloud: "Add your OpenRouter API key"
-            case .gemini: "Add your Gemini API key"
-            default: "Choose a language model first"
+        let model: ModelEntry
+        do {
+            model = try CorrectionService.readyModel(for: snapshot.text)
+        } catch {
+            let message = error.localizedDescription
+            if case CorrectionError.tooLong = error {
+                Bubble.shared.flash(.info(message), anchor: snapshot.screenRect)
+                outcome.status = .failed(message)
+            } else {
+                Bubble.shared.flash(.error(message), anchor: snapshot.screenRect)
+                if source != .test { WindowManager.shared.showSettings(tab: .models) }
+                outcome.status = .notReady(message)
             }
-            Bubble.shared.flash(.error(message), anchor: snapshot.screenRect)
-            if source != .test { WindowManager.shared.showSettings(tab: .models) }
-            outcome.status = .notReady(message)
             return outcome
         }
         outcome.model = model.displayName
 
         Bubble.shared.show(.correcting, anchor: snapshot.screenRect)
-        let started = Date()
 
         do {
-            let system = CorrectionPrompt.system(language: AppSettings.shared.language)
-            let raw = try await store.complete(system: system, user: CorrectionPrompt.user(snapshot.text))
-            try Task.checkCancellation()
-            let corrected = CorrectionPrompt.postProcess(raw, original: snapshot.text)
+            let correction = try await CorrectionService.correct(snapshot.text, language: AppSettings.shared.language)
+            let corrected = correction.corrected
             outcome.corrected = corrected
-            outcome.duration = Date().timeIntervalSince(started)
+            outcome.duration = correction.duration
 
             if corrected == snapshot.text {
                 Bubble.shared.flash(.done("No mistakes found"), anchor: snapshot.screenRect)

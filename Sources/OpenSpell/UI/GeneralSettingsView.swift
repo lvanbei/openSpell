@@ -1,4 +1,5 @@
 import Combine
+import OpenSpellCore
 import SwiftUI
 
 struct GeneralSettingsView: View {

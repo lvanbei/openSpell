@@ -1,13 +1,13 @@
 import Foundation
 
-enum GeminiError: LocalizedError {
+public enum GeminiError: LocalizedError {
     case missingAPIKey
     case http(Int, String)
     case emptyResponse(String?)
     /// The model was retired / isn't offered to this key. `suggestion` is Google's suggested replacement, if any.
     case modelUnavailable(model: String, suggestion: String?, message: String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .missingAPIKey: "Add a Gemini API key in Settings › Models."
         case .http(let code, let message): "Gemini error \(code): \(message)"
@@ -20,21 +20,21 @@ enum GeminiError: LocalizedError {
 }
 
 /// Client for Google's Gemini API (Google AI Studio keys), used directly without OpenRouter.
-enum GeminiClient {
+public enum GeminiClient {
     static let keychainAccount = "gemini-api-key"
     private static let base = URL(string: "https://generativelanguage.googleapis.com/v1beta")!
 
-    static var apiKey: String? { Keychain.get(keychainAccount) }
+    public static var apiKey: String? { Keychain.get(keychainAccount) }
 
     /// Accepts "gemini-2.5-flash", "models/gemini-2.5-flash" or "google/gemini-2.5-flash".
-    static func normalize(_ model: String) -> String {
+    public static func normalize(_ model: String) -> String {
         var m = model.trimmingCharacters(in: .whitespacesAndNewlines)
         for prefix in ["models/", "google/"] where m.hasPrefix(prefix) { m = String(m.dropFirst(prefix.count)) }
         return m
     }
 
-    static func complete(model rawModel: String, system: String, user: String,
-                         apiKey overrideKey: String? = nil) async throws -> String {
+    public static func complete(model rawModel: String, system: String, user: String,
+                                apiKey overrideKey: String? = nil) async throws -> String {
         guard let key = overrideKey ?? apiKey, !key.isEmpty else { throw GeminiError.missingAPIKey }
         let model = normalize(rawModel)
         do {
@@ -109,9 +109,9 @@ enum GeminiClient {
 
     // MARK: Model discovery
 
-    struct ModelInfo: Identifiable, Hashable {
-        let id: String           // e.g. "gemini-3.8-flash"
-        let displayName: String
+    public struct ModelInfo: Identifiable, Hashable {
+        public let id: String           // e.g. "gemini-3.8-flash"
+        public let displayName: String
     }
 
     /// All models this key can call with generateContent.
@@ -145,13 +145,13 @@ enum GeminiClient {
     }
 
     /// Best default for proofreading: newest stable Flash-Lite, then Flash, then previews.
-    static func recommended(from models: [ModelInfo]) -> ModelInfo? {
+    public static func recommended(from models: [ModelInfo]) -> ModelInfo? {
         models.filter { isTextModel($0.id) && $0.id.contains("flash") }.max { rank($0.id) < rank($1.id) }
             ?? models.filter { isTextModel($0.id) }.max { rank($0.id) < rank($1.id) }
     }
 
     /// Offline fallback: Google's moving alias for the current Flash model.
-    static let fallbackModel = "gemini-flash-latest"
+    public static let fallbackModel = "gemini-flash-latest"
 
     private static func isTextModel(_ id: String) -> Bool {
         let excluded = ["image", "tts", "audio", "live", "embedding", "vision", "robotics", "computer-use", "native"]
@@ -177,7 +177,7 @@ enum GeminiClient {
     }
 
     /// Validates a key without generating anything (lists one model).
-    static func checkKey(_ key: String) async throws {
+    public static func checkKey(_ key: String) async throws {
         var components = URLComponents(url: base.appending(path: "models"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "pageSize", value: "1")]
         var request = URLRequest(url: components.url!)

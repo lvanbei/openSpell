@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import OpenSpellCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         ForceTouchMonitor.shared.start()
 
+        ModelStore.shared.localRuntime = MLXRuntime()
         ModelStore.shared.bootstrap()
 
         if let i = CommandLine.arguments.firstIndex(of: "--snapshot"), i + 1 < CommandLine.arguments.count {

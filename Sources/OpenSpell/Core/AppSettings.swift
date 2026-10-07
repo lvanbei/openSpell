@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import OpenSpellCore
 import ServiceManagement
 
 enum BubblePosition: String, CaseIterable, Identifiable, Codable {
@@ -11,44 +12,6 @@ enum BubblePosition: String, CaseIterable, Identifiable, Codable {
         case .top: "Top"
         case .bottom: "Bottom"
         case .cursor: "Cursor"
-        }
-    }
-}
-
-/// Language hint passed to the model. `auto` keeps whatever language the text is written in.
-enum CorrectionLanguage: String, CaseIterable, Identifiable, Codable {
-    case auto, english, chinese, hindi, spanish, french, arabic, portuguese, russian,
-         indonesian, german, japanese, turkish, korean, vietnamese, italian, dutch, polish
-
-    var id: String { rawValue }
-
-    var flag: String {
-        switch self {
-        case .auto: "🌐"
-        case .english: "🇬🇧"
-        case .chinese: "🇨🇳"
-        case .hindi: "🇮🇳"
-        case .spanish: "🇪🇸"
-        case .french: "🇫🇷"
-        case .arabic: "🇸🇦"
-        case .portuguese: "🇧🇷"
-        case .russian: "🇷🇺"
-        case .indonesian: "🇮🇩"
-        case .german: "🇩🇪"
-        case .japanese: "🇯🇵"
-        case .turkish: "🇹🇷"
-        case .korean: "🇰🇷"
-        case .vietnamese: "🇻🇳"
-        case .italian: "🇮🇹"
-        case .dutch: "🇳🇱"
-        case .polish: "🇵🇱"
-        }
-    }
-
-    var name: String {
-        switch self {
-        case .auto: "Auto-detect"
-        default: rawValue.capitalized
         }
     }
 }
