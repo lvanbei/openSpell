@@ -386,7 +386,7 @@ struct ModelsSettingsView: View {
 
         let result = await sampleCorrection {
             try await OpenRouterClient.complete(model: slug, system: CorrectionPrompt.system(language: .auto),
-                                                user: sampleText, apiKey: key)
+                                                user: CorrectionPrompt.user(sampleText), apiKey: key)
         }
         switch result {
         case .success(let (fixed, seconds)):
@@ -413,7 +413,7 @@ struct ModelsSettingsView: View {
         func run(_ m: String) async -> Result<(String, Double), Error> {
             await sampleCorrection {
                 try await GeminiClient.complete(model: m, system: CorrectionPrompt.system(language: .auto),
-                                                user: sampleText, apiKey: key)
+                                                user: CorrectionPrompt.user(sampleText), apiKey: key)
             }
         }
 

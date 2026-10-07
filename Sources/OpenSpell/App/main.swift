@@ -24,14 +24,14 @@ if args.count >= 3, ["--download", "--correct"].contains(args[1]) {
                 let start = Date()
                 let raw: String
                 if target.hasPrefix("openrouter:") {
-                    raw = try await OpenRouterClient.complete(model: String(target.dropFirst(11)), system: system, user: text)
+                    raw = try await OpenRouterClient.complete(model: String(target.dropFirst(11)), system: system, user: CorrectionPrompt.user(text))
                 } else if target.hasPrefix("gemini:") {
-                    raw = try await GeminiClient.complete(model: String(target.dropFirst(7)), system: system, user: text,
+                    raw = try await GeminiClient.complete(model: String(target.dropFirst(7)), system: system, user: CorrectionPrompt.user(text),
                                                           apiKey: ProcessInfo.processInfo.environment["GEMINI_API_KEY"])
                 } else {
                     raw = try await LocalLLM.shared.complete(
                         directory: ModelStore.directory(for: target),
-                        extraEOSTokens: ModelStore.extraEOSTokens(for: target), system: system, user: text)
+                        extraEOSTokens: ModelStore.extraEOSTokens(for: target), system: system, user: CorrectionPrompt.user(text))
                 }
                 print(CorrectionPrompt.postProcess(raw, original: text))
                 FileHandle.standardError.write(String(format: "(%.2fs)\n", Date().timeIntervalSince(start)).data(using: .utf8)!)

@@ -204,7 +204,7 @@ final class Diagnostics: ObservableObject {
         let start = Date()
         do {
             let raw = try await store.complete(system: CorrectionPrompt.system(language: AppSettings.shared.language),
-                                               user: Self.sample)
+                                               user: CorrectionPrompt.user(Self.sample))
             let fixed = CorrectionPrompt.postProcess(raw, original: Self.sample)
             let seconds = Date().timeIntervalSince(start)
             let remaining = Self.typos.filter { fixed.contains($0) }
