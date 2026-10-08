@@ -70,6 +70,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private func present(_ window: NSWindow) {
         if !window.isVisible { window.center() }
         NSApp.activate()
+        // activate() is only a request since macOS 14; raise the window even if it isn't granted.
+        window.orderFrontRegardless()
         window.makeKeyAndOrderFront(nil)
     }
 
