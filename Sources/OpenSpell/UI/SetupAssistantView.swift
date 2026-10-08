@@ -89,8 +89,8 @@ private struct WelcomeStep: View {
                        subtitle: "Select text anywhere, press ⇧⌘Space or press firmly on your trackpad, and the corrected text replaces your selection — right where you type.")
             VStack(alignment: .leading, spacing: 12) {
                 bullet("menubar.rectangle", "Lives quietly in your menu bar. No Dock icon.")
-                bullet("lock.shield", "On-device models keep every word on your Mac.")
-                bullet("cloud", "Or bring your own OpenRouter key for cloud models.")
+                bullet("lock.shield", "Apple Intelligence and on-device models keep every word on your Mac.")
+                bullet("cloud", "Or bring your own Gemini or OpenRouter key for cloud models.")
                 bullet("clock.arrow.circlepath", "A history of every fix, so you can go back.")
             }
             .padding(20)
@@ -146,27 +146,28 @@ private struct ModelStep: View {
 
         VStack(spacing: 20) {
             StepHeader(symbol: "brain", color: .pink, title: "Choose a language model",
-                       subtitle: "Run a model privately on your Mac, or use a cloud model with your own Gemini or OpenRouter key. You can change this any time in Settings › Models.")
+                       subtitle: "Use Apple Intelligence or another model privately on your Mac, or a cloud model with your own Gemini or OpenRouter key. You can change this any time in Settings › Models.")
 
             SettingsCard {
-                if [.available, .notReady, .notEnabled].contains(AppleIntelligence.status) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "apple.intelligence").font(.title2).foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 12) {
+                    Image(systemName: "apple.intelligence").font(.title2).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
                             Text("On-device: Apple Intelligence").bold()
-                            Caption(AppleIntelligence.status.message.map { $0 + "." }
-                                    ?? "Built into macOS. Private and free, nothing to download.")
+                            if AppleIntelligence.status == .available { Pill(text: "Recommended", color: .accentColor) }
                         }
-                        Spacer()
-                        if store.selected?.kind == .apple {
-                            Label("Selected", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                        } else if AppleIntelligence.status == .available {
-                            Button("Use") { store.useAppleIntelligence() }
-                        }
+                        Caption(AppleIntelligence.status.message.map { $0 + "." }
+                                ?? "Built into macOS. Private, free and fast, with nothing to download.")
                     }
-                    .padding(14)
-                    Divider()
+                    Spacer()
+                    if store.selected?.kind == .apple {
+                        Label("Selected", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else if AppleIntelligence.status == .available {
+                        Button("Use") { store.useAppleIntelligence() }
+                    }
                 }
+                .padding(14)
+                Divider()
                 HStack(spacing: 12) {
                     Image(systemName: "internaldrive").font(.title2).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 2) {

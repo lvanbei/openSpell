@@ -97,15 +97,12 @@ public final class ModelStore: ObservableObject {
            let saved = try? JSONDecoder().decode([ModelEntry].self, from: data) {
             entries = saved
             selectedID = defaults.string(forKey: "models.selected")
+            useAppleIntelligenceIfNothingSelected()
         } else {
             entries = [Self.defaultCloud]
-            selectedID = Self.defaultCloud.id
-            // Fresh install: start with the on-device model when Apple Intelligence is on (or still downloading).
-            if [.available, .notReady].contains(AppleIntelligence.status) {
-                entries.insert(Self.appleIntelligence, at: 0)
-                selectedID = Self.appleIntelligence.id
-                persist()
-            }
+            selectedID = nil
+            useAppleIntelligenceIfNothingSelected()
+            if selectedID == nil { selectedID = Self.defaultCloud.id }
         }
         // Learn whether the OpenRouter key is free tier (switches paid OpenRouter picks to a free model).
         if hasAPIKey { Task { await refreshOpenRouterTier() } }
@@ -118,6 +115,16 @@ public final class ModelStore: ObservableObject {
     private func persist() {
         if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: "models.entries") }
         defaults.set(selectedID, forKey: "models.selected")
+    }
+
+    /// With no model chosen (fresh install, or the chosen one was removed), use Apple Intelligence when it's on
+    /// or still downloading.
+    private func useAppleIntelligenceIfNothingSelected() {
+        guard entries.first(where: { $0.id == selectedID }) == nil,
+              [.available, .notReady].contains(AppleIntelligence.status) else { return }
+        if !entries.contains(Self.appleIntelligence) { entries.insert(Self.appleIntelligence, at: 0) }
+        selectedID = Self.appleIntelligence.id
+        persist()
     }
 
     /// Re-reads saved models and keys without any network calls (the iOS keyboard runs this each time it appears).
@@ -392,6 +399,7 @@ public final class ModelStore: ObservableObject {
         entries.removeAll { $0.id == entry.id }
         if selectedID == entry.id { selectedID = nil }
         persist()
+        if entry.kind != .apple { useAppleIntelligenceIfNothingSelected() }
     }
 
     // MARK: Inference

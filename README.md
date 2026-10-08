@@ -96,7 +96,7 @@ To open Settings or History, click the menu bar icon.
 
 ### Apple Intelligence
 
-On macOS 26 or later with Apple Intelligence turned on, OpenSpell can use Apple's on-device model. It's free, needs no download and keeps your text on your Mac. A fresh install picks it automatically; otherwise click **Use** in the Models tab. The Models tab lists the languages it supports; for others, use another model. Its context window is small, so OpenSpell corrects long text a few paragraphs at a time.
+On macOS 26 or later with Apple Intelligence turned on, OpenSpell can use Apple's on-device model. It's free, needs no download and keeps your text on your Mac. Whenever no model is selected, such as after a fresh install or after you remove the model in use, OpenSpell uses it automatically; otherwise click **Use** in the Models tab. The Models tab lists the languages it supports; for others, use another model. Its context window is small, so OpenSpell corrects long text a few paragraphs at a time.
 
 ### On-device (MLX)
 
