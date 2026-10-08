@@ -51,7 +51,7 @@ actor LocalLLM {
     static let shared = LocalLLM()
 
     /// Weights take gigabytes of unified memory, which an idle menu bar app shouldn't hold on to.
-    static let idleTimeout: Duration = .seconds(3 * 60)
+    static let idleTimeout: Duration = .seconds(30)
 
     private var loadedDirectory: URL?
     private var container: ModelContainer?

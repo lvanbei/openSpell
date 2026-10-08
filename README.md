@@ -105,7 +105,7 @@ On-device models are free, keep your text private, and work offline once they're
 
 You can also enter any Hugging Face repo that contains MLX weights (`*.safetensors`). Downloads use several parallel connections and resume where they left off. Each file is checked against its SHA-256 checksum.
 
-The model stays in memory while you use it. After 3 minutes without a correction, OpenSpell frees that memory, so the next correction takes a few seconds longer.
+The model stays in memory while you use it. After 30 secondes without a correction, OpenSpell frees that memory, so the next correction takes a few seconds longer.
 
 ### Google Gemini
 
