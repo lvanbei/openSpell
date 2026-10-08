@@ -53,7 +53,7 @@ cd openSpell
 | `CODESIGN_IDENTITY="Apple Development: you@example.com (TEAMID)"` | Sign with a specific identity                 |
 | `VERSION=1.2.0 BUILD_NUMBER=42`                                   | Set the version and build number              |
 
-By default, the script signs with the first Apple Development certificate in your keychain. If there isn't one, it signs ad-hoc. Use a stable identity if you can: with an ad-hoc signature, macOS forgets the Accessibility permission every time the binary changes.
+By default, the script signs with your Developer ID Application certificate, the identity releases use. macOS ties the Accessibility permission to the signing identity, so a local build and a release can then replace each other without losing it. Without a Developer ID, the script uses the first Apple Development certificate in your keychain, and otherwise signs ad-hoc. Use a stable identity if you can: with an ad-hoc signature, macOS forgets the Accessibility permission every time the binary changes.
 
 To make a disk image, run `./scripts/package.sh` after building. It writes `build/OpenSpell-<version>.dmg` and a SHA-256 checksum next to it.
 
@@ -104,6 +104,8 @@ On-device models are free, keep your text private, and work offline once they're
 | Mistral 7B Instruct | `mlx-community/Mistral-7B-Instruct-v0.3-4bit` | 4.1 GB | Strong in French; works best with 16 GB of RAM |
 
 You can also enter any Hugging Face repo that contains MLX weights (`*.safetensors`). Downloads use several parallel connections and resume where they left off. Each file is checked against its SHA-256 checksum.
+
+The model stays in memory while you use it. After 3 minutes without a correction, OpenSpell frees that memory, so the next correction takes a few seconds longer.
 
 ### Google Gemini
 

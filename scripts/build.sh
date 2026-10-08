@@ -21,8 +21,12 @@ APP="$ROOT/build/OpenSpell.app"
 if [ -n "${CODESIGN_IDENTITY:-}" ]; then
     IDENTITY="$CODESIGN_IDENTITY"
 else
-    # Prefer a local Apple Development certificate (by hash, names can be ambiguous); else ad-hoc.
-    IDENTITY="$(security find-identity -p codesigning -v 2>/dev/null | awk '/Apple Development/ {print $2; exit}')"
+    # Prefer the Developer ID that signs releases (Accessibility survives swapping local builds and releases),
+    # else Apple Development (by hash, names can be ambiguous), else ad-hoc.
+    IDENTITY="$(security find-identity -p codesigning -v 2>/dev/null | awk '
+        /Developer ID Application/ && dev == "" { dev = $2 }
+        /Apple Development/ && apple == "" { apple = $2 }
+        END { print (dev != "" ? dev : apple) }')"
     IDENTITY="${IDENTITY:--}"
 fi
 
@@ -72,6 +76,11 @@ codesign --verify --strict "$APP"
 echo "✓ Built $APP"
 
 if [[ "${1:-}" == "--install" ]]; then
+    # Check first: without admin rights (they can expire), rm empties the old app but can't remove it.
+    if [ ! -w /Applications ]; then
+        echo "Not installing: /Applications isn't writable (admin rights needed). The app is built in $APP."
+        exit 1
+    fi
     pkill -x OpenSpell 2>/dev/null || true
     rm -rf /Applications/OpenSpell.app
     cp -R "$APP" /Applications/

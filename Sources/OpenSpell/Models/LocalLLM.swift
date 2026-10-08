@@ -46,12 +46,18 @@ private struct NoDownloader: MLXLMCommon.Downloader {
     }
 }
 
-/// Runs MLX models on-device. Keeps the last used model resident in memory.
+/// Runs MLX models on-device. Keeps the last used model in memory until it has been idle for `idleTimeout`.
 actor LocalLLM {
     static let shared = LocalLLM()
 
+    /// Weights take gigabytes of unified memory, which an idle menu bar app shouldn't hold on to.
+    static let idleTimeout: Duration = .seconds(3 * 60)
+
     private var loadedDirectory: URL?
     private var container: ModelContainer?
+    /// Loads and generations in flight; the idle timer never unloads under them.
+    private var activeRequests = 0
+    private var idleUnload: Task<Void, Never>?
 
     init() {
         // Keep MLX's buffer cache modest — we're a background utility.
@@ -59,6 +65,8 @@ actor LocalLLM {
     }
 
     func complete(directory: URL, extraEOSTokens: Set<String>, system: String, user: String) async throws -> String {
+        beginUse()
+        defer { endUse() }
         let container = try await load(directory: directory, extraEOSTokens: extraEOSTokens)
         // Rough upper bound: corrections are about as long as the input.
         let maxTokens = min(4096, max(128, user.utf8.count / 2 + 64))
@@ -79,13 +87,30 @@ actor LocalLLM {
     }
 
     func preload(directory: URL, extraEOSTokens: Set<String>) async throws {
+        beginUse()
+        defer { endUse() }
         _ = try await load(directory: directory, extraEOSTokens: extraEOSTokens)
     }
 
     func unload() {
+        idleUnload?.cancel()
         container = nil
         loadedDirectory = nil
         MLX.Memory.clearCache()
+    }
+
+    private func beginUse() {
+        activeRequests += 1
+        idleUnload?.cancel()
+    }
+
+    private func endUse() {
+        activeRequests -= 1
+        guard activeRequests == 0, container != nil else { return }
+        idleUnload = Task {
+            try? await Task.sleep(for: Self.idleTimeout)
+            if !Task.isCancelled { unload() }
+        }
     }
 
     private func load(directory: URL, extraEOSTokens: Set<String>) async throws -> ModelContainer {
