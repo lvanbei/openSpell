@@ -60,7 +60,9 @@ enum TextAccess {
         if let app { enableEnhancedAccessibility(for: app) }
 
         let element = focusedElement()
-        if let element, let text = stringAttribute(element, kAXSelectedTextAttribute), !text.isEmpty {
+        // Canvas editors (Google Docs) can report blank or invisible-only text here; ⌘C still works for them.
+        if let element, let text = stringAttribute(element, kAXSelectedTextAttribute),
+           text.unicodeScalars.contains(where: CharacterSet.alphanumerics.contains) {
             let range = selectedRange(of: element)
             let rect = range.flatMap { boundsForRange($0, in: element) } ?? frameOf(element)
             return SelectionSnapshot(text: text, app: app, element: element, range: range,
@@ -69,7 +71,10 @@ enum TextAccess {
 
         // Fallback for apps without AX text support: synthesize ⌘C.
         await waitForModifierRelease()
-        guard let copied = await copySelectionViaPasteboard(), !copied.isEmpty else { return nil }
+        guard let copied = await copySelectionViaPasteboard(), !copied.isEmpty else {
+            NSLog("OpenSpell: no selection from \(app?.bundleIdentifier ?? "?") (AX and ⌘C both empty)")
+            return nil
+        }
         return SelectionSnapshot(text: copied, app: app, element: element, range: nil,
                                  screenRect: element.flatMap(frameOf), viaAccessibility: false)
     }
@@ -199,7 +204,7 @@ enum TextAccess {
         postKey(code: 8 /* kVK_ANSI_C */, flags: .maskCommand)
 
         var result: String?
-        for _ in 0..<25 {  // up to ~500 ms
+        for _ in 0..<50 {  // up to ~1 s: web editors like Google Docs fill the clipboard in script
             try? await Task.sleep(for: .milliseconds(20))
             if pb.changeCount != before {
                 result = pb.string(forType: .string)
