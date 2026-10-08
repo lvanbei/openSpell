@@ -18,16 +18,16 @@ enum BubblePosition: String, CaseIterable, Identifiable, Codable {
 
 /// Force-click sensitivity. The value is an arbitrary 50…550 scale (Medium = 300)
 /// mapped onto the stage-1 trackpad pressure, so a correction fires *before*
-/// the system force click (Look Up) kicks in.
+/// the system force click (Look Up) kicks in — except at the maximum, which waits for it.
 enum ForceSensitivity {
     static let range: ClosedRange<Double> = 50...550
     static let light: Double = 100
     static let medium: Double = 300
     static let firm: Double = 500
 
-    /// Stage-1 pressure (0…1) required to trigger.
+    /// Stage-1 pressure (0…1) required to trigger; 1 means the system force click itself.
     static func pressureThreshold(for value: Double) -> Double {
-        min(0.99, 0.45 + value / 1000)
+        value >= range.upperBound ? 1 : min(0.99, 0.45 + value / 1000)
     }
 
     /// Inverse of `pressureThreshold`, used by calibration.
@@ -39,7 +39,8 @@ enum ForceSensitivity {
         switch value {
         case ..<200: "Light"
         case ..<400: "Medium"
-        default: "Firm"
+        case ..<range.upperBound: "Firm"
+        default: "Force click"
         }
     }
 }
