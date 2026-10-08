@@ -149,6 +149,24 @@ private struct ModelStep: View {
                        subtitle: "Run a model privately on your Mac, or use a cloud model with your own Gemini or OpenRouter key. You can change this any time in Settings › Models.")
 
             SettingsCard {
+                if [.available, .notReady, .notEnabled].contains(AppleIntelligence.status) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "apple.intelligence").font(.title2).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("On-device: Apple Intelligence").bold()
+                            Caption(AppleIntelligence.status.message.map { $0 + "." }
+                                    ?? "Built into macOS. Private and free, nothing to download.")
+                        }
+                        Spacer()
+                        if store.selected?.kind == .apple {
+                            Label("Selected", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        } else if AppleIntelligence.status == .available {
+                            Button("Use") { store.useAppleIntelligence() }
+                        }
+                    }
+                    .padding(14)
+                    Divider()
+                }
                 HStack(spacing: 12) {
                     Image(systemName: "internaldrive").font(.title2).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 2) {

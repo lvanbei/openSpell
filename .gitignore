@@ -7,3 +7,4 @@ DerivedData/
 build.log
 build-ios.log
 iOS/*.xcodeproj/
+test.txt

@@ -3,7 +3,7 @@ import OpenSpellCore
 
 // Hidden developer CLI (used for smoke tests):
 //   OpenSpell --download <hf-repo>
-//   OpenSpell --correct <hf-repo | openrouter:slug> "text with tpyos"
+//   OpenSpell --correct <hf-repo | openrouter:slug | gemini:model | apple> "text with tpyos"
 let args = CommandLine.arguments
 if args.count >= 3, ["--download", "--correct"].contains(args[1]) {
     Task.detached {
@@ -21,20 +21,22 @@ if args.count >= 3, ["--download", "--correct"].contains(args[1]) {
                 print("\nsaved to \(dir.path)")
             default:
                 let target = args[2], text = args.count > 3 ? args[3] : "I beleive we can definately ship the new featur by tommorow."
-                let system = CorrectionPrompt.system(language: .auto)
                 let start = Date()
-                let raw: String
-                if target.hasPrefix("openrouter:") {
-                    raw = try await OpenRouterClient.complete(model: String(target.dropFirst(11)), system: system, user: CorrectionPrompt.user(text))
-                } else if target.hasPrefix("gemini:") {
-                    raw = try await GeminiClient.complete(model: String(target.dropFirst(7)), system: system, user: CorrectionPrompt.user(text),
-                                                          apiKey: ProcessInfo.processInfo.environment["GEMINI_API_KEY"])
-                } else {
-                    raw = try await LocalLLM.shared.complete(
-                        directory: ModelStore.directory(for: target),
-                        extraEOSTokens: ModelStore.extraEOSTokens(for: target), system: system, user: CorrectionPrompt.user(text))
-                }
-                print(CorrectionPrompt.postProcess(raw, original: text))
+                // Same checks as a real correction: answers that aren't the corrected text are retried, then rejected.
+                let fixed = target == "apple"
+                    ? try await AppleIntelligence.correct(text, language: .auto)
+                    : try await CorrectionService.ask(text, system: CorrectionPrompt.system(language: .auto)) { system, user in
+                        if target.hasPrefix("openrouter:") {
+                            return try await OpenRouterClient.complete(model: String(target.dropFirst(11)), system: system, user: user)
+                        } else if target.hasPrefix("gemini:") {
+                            return try await GeminiClient.complete(model: String(target.dropFirst(7)), system: system, user: user,
+                                                                   apiKey: ProcessInfo.processInfo.environment["GEMINI_API_KEY"])
+                        }
+                        return try await LocalLLM.shared.complete(
+                            directory: ModelStore.directory(for: target),
+                            extraEOSTokens: ModelStore.extraEOSTokens(for: target), system: system, user: user)
+                    }
+                print(fixed)
                 FileHandle.standardError.write(String(format: "(%.2fs)\n", Date().timeIntervalSince(start)).data(using: .utf8)!)
             }
         } catch {

@@ -1,38 +1,38 @@
-#if os(iOS)
 import Foundation
 import FoundationModels
 
-/// Apple Intelligence's on-device model. It runs in a system process, so the keyboard can use it despite its memory limit.
+/// Apple Intelligence's on-device model (macOS 26 and iOS 26 or later). It runs in a system process, so the iOS
+/// keyboard can use it despite its memory limit, and nothing has to be downloaded.
 public enum AppleIntelligence {
     public enum Status: Equatable, Sendable {
-        case available, deviceNotEligible, notEnabled, notReady
+        case available, deviceNotEligible, notEnabled, notReady, systemTooOld
 
         /// Why the model can't be used right now, or nil when it can.
         public var message: String? {
             switch self {
             case .available: nil
+            #if os(iOS)
             case .deviceNotEligible: "This iPhone doesn't support Apple Intelligence"
             case .notEnabled: "Turn on Apple Intelligence in Settings › Apple Intelligence & Siri"
+            #else
+            case .deviceNotEligible: "This Mac doesn't support Apple Intelligence"
+            case .notEnabled: "Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri"
+            #endif
             case .notReady: "Apple Intelligence is still downloading. Try again later"
+            case .systemTooOld: "Apple Intelligence needs macOS 26 or later"
             }
         }
     }
 
-    // Permissive guardrails are meant for transforming the user's own text, such as proofreading it.
-    private static let model = SystemLanguageModel(useCase: .general, guardrails: .permissiveContentTransformations)
-
     public static var status: Status {
-        switch model.availability {
-        case .available: .available
-        case .unavailable(.appleIntelligenceNotEnabled): .notEnabled
-        case .unavailable(.modelNotReady): .notReady
-        case .unavailable: .deviceNotEligible
-        }
+        guard #available(macOS 26.0, iOS 26.0, *) else { return .systemTooOld }
+        return SystemModel.status
     }
 
     /// Codes of the languages the model handles, such as "en" and "fr".
     public static var languageCodes: Set<String> {
-        Set(model.supportedLanguages.compactMap { $0.languageCode?.identifier })
+        guard #available(macOS 26.0, iOS 26.0, *) else { return [] }
+        return SystemModel.languageCodes
     }
 
     /// Auto-detect always passes; the model reports text in a language it doesn't handle.
@@ -41,8 +41,38 @@ public enum AppleIntelligence {
     }
 
     /// Proofreads `text`, in several requests when it doesn't fit the small context window at once.
+    public static func correct(_ text: String, language: CorrectionLanguage) async throws -> String {
+        guard #available(macOS 26.0, iOS 26.0, *) else { throw CorrectionError.modelNotReady(.apple) }
+        return try await SystemModel.correct(text, language: language)
+    }
+
+    /// One request in a fresh session.
+    static func respond(system: String, user: String) async throws -> String {
+        guard #available(macOS 26.0, iOS 26.0, *) else { throw CorrectionError.modelNotReady(.apple) }
+        return try await SystemModel.respond(system: system, user: user)
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, *)
+private enum SystemModel {
+    // Permissive guardrails are meant for transforming the user's own text, such as proofreading it.
+    static let model = SystemLanguageModel(useCase: .general, guardrails: .permissiveContentTransformations)
+
+    static var status: AppleIntelligence.Status {
+        switch model.availability {
+        case .available: .available
+        case .unavailable(.appleIntelligenceNotEnabled): .notEnabled
+        case .unavailable(.modelNotReady): .notReady
+        case .unavailable: .deviceNotEligible
+        }
+    }
+
+    static var languageCodes: Set<String> {
+        Set(model.supportedLanguages.compactMap { $0.languageCode?.identifier })
+    }
+
     static func correct(_ text: String, language: CorrectionLanguage) async throws -> String {
-        guard supports(language) else { throw AppleIntelligenceError.unsupportedLanguage(language.name) }
+        guard AppleIntelligence.supports(language) else { throw AppleIntelligenceError.unsupportedLanguage(language.name) }
         let system = CorrectionPrompt.system(language: language)
         let budget = await inputBudget(system: system)
         let total = await tokens(in: text)
@@ -57,14 +87,13 @@ public enum AppleIntelligence {
             if piece.allSatisfy(\.isWhitespace) {
                 corrected += piece
             } else {
-                let output = try await respond(system: system, user: CorrectionPrompt.user(piece))
-                corrected += CorrectionPrompt.postProcess(output, original: piece)
+                corrected += try await CorrectionService.ask(piece, system: system) { try await respond(system: $0, user: $1) }
             }
         }
         return corrected
     }
 
-    /// One request in a fresh session. Greedy sampling gives the same text the same fix every time.
+    /// Greedy sampling gives the same text the same fix every time.
     static func respond(system: String, user: String) async throws -> String {
         let session = LanguageModelSession(model: model, instructions: system)
         do {
@@ -81,7 +110,7 @@ public enum AppleIntelligence {
     }
 
     private static func tokens(in text: String) async -> Int {
-        if #available(iOS 26.4, *), let count = try? await model.tokenCount(for: text) { return count }
+        if #available(macOS 26.4, iOS 26.4, *), let count = try? await model.tokenCount(for: text) { return count }
         return text.utf8.count / 2 + 1
     }
 }
@@ -94,17 +123,18 @@ public enum AppleIntelligenceError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .unsupportedLanguage(let name):
-            "Apple Intelligence doesn't support \(name ?? "this language") yet. Use a Gemini or OpenRouter model"
+            "Apple Intelligence doesn't support \(name ?? "this language") yet. Use another model"
         case .tooLong: "This text is too long for Apple Intelligence. Select a shorter part"
-        case .declined: "Apple Intelligence declined this text. Try a Gemini or OpenRouter model"
+        case .declined: "Apple Intelligence declined this text. Try another model"
         case .busy: "Apple Intelligence is busy. Try again in a moment"
         case .notReady: AppleIntelligence.Status.notReady.message
         }
     }
 
     /// Maps FoundationModels errors to messages; nil for other errors.
+    @available(macOS 26.0, iOS 26.0, *)
     init?(_ error: any Error) {
-        if #available(iOS 27.0, *) {
+        if #available(macOS 27.0, iOS 27.0, *) {
             if let error = error as? LanguageModelError {
                 switch error {
                 case .contextSizeExceeded: self = .tooLong
@@ -131,4 +161,3 @@ public enum AppleIntelligenceError: LocalizedError, Equatable {
         }
     }
 }
-#endif

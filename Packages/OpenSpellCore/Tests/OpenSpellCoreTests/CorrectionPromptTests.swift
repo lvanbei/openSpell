@@ -27,6 +27,12 @@ struct CorrectionPromptTests {
         #expect(CorrectionPrompt.postProcess("Hello world", original: "  helo wrld\n") == "  Hello world\n")
     }
 
+    @Test func keepsTheWritersApostrophes() {
+        #expect(CorrectionPrompt.postProcess("Il n'est pas là.", original: "il n’est pas la") == "Il n’est pas là.")
+        #expect(CorrectionPrompt.postProcess("It’s fine.", original: "it's fine") == "It's fine.")
+        #expect(CorrectionPrompt.postProcess("Don't do it.", original: "dont do it") == "Don't do it.")
+    }
+
     @Test func fallsBackToTheOriginalOnEmptyOutput() {
         #expect(CorrectionPrompt.postProcess("  ", original: "keep me") == "keep me")
         #expect(CorrectionPrompt.postProcess("<think>only thoughts</think>", original: "keep me") == "keep me")

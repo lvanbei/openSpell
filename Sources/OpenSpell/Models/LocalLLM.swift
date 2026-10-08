@@ -68,9 +68,9 @@ actor LocalLLM {
         beginUse()
         defer { endUse() }
         let container = try await load(directory: directory, extraEOSTokens: extraEOSTokens)
-        // Rough upper bound: corrections are about as long as the input.
-        let maxTokens = min(4096, max(128, user.utf8.count / 2 + 64))
-        let params = GenerateParameters(maxTokens: maxTokens, temperature: 0)
+        // Corrections are about as long as the input. Counting its tokens keeps long or non-Latin text from being cut off.
+        let inputTokens = await container.perform { (context: ModelContext) in context.tokenizer.encode(text: user).count }
+        let params = GenerateParameters(maxTokens: max(128, inputTokens * 5 / 4 + 64), temperature: 0)
 
         // Hybrid reasoning models (Qwen3 etc.) honour this; other templates ignore it.
         let context: [String: any Sendable] = ["enable_thinking": false]

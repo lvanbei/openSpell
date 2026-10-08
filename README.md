@@ -2,7 +2,7 @@
 
 OpenSpell is a macOS menu bar app that fixes spelling, grammar and punctuation in any app. Select some text and press **⇧⌘Space**, or press firmly on the trackpad. The corrected text replaces your selection in place.
 
-You can run corrections on your Mac with [MLX](https://github.com/ml-explore/mlx-swift) models, or in the cloud with your own Google Gemini or OpenRouter API key.
+You can run corrections on your Mac with Apple Intelligence or [MLX](https://github.com/ml-explore/mlx-swift) models, or in the cloud with your own Google Gemini or OpenRouter API key.
 
 [![OpenSpell demo: select text, then press ⇧⌘Space or press firmly on the trackpad, and the fix replaces the selection](docs/screenshots/OpenSpell_QuickDemo_Static.gif)](docs/screenshots/OpenSpell_QuickDemo_Static.mp4)
 
@@ -22,9 +22,10 @@ OpenSpell needs macOS 15 or later on an Apple silicon Mac. To build it yourself,
 
 - **Works in any app.** It fixes the selection in place and restores your clipboard afterwards.
 - **Two triggers.** Use a global keyboard shortcut, or a force click with adjustable sensitivity. The force click fires before macOS's Look Up.
-- **On-device models.** Download MLX models from Hugging Face. Your text stays on your Mac.
+- **On-device models.** Use Apple Intelligence on macOS 26, or download MLX models from Hugging Face: pick a recommended one or search for others. Your text stays on your Mac.
 - **Cloud models.** Use the Google Gemini API or any text model on OpenRouter, including free ones.
 - **Minimal edits.** It fixes mistakes without rephrasing or translating, and leaves formatting, URLs, mentions and code alone.
+- **Only corrections.** OpenSpell checks that the model returned your whole text, corrected. A reply, a translation, a summary or part of the text never replaces your selection.
 - **Language hint.** Auto-detect the language, or choose one of 17 languages.
 - **History.** Your last 1,000 corrections are kept in a local log that you can search.
 - **Guided setup and self-test.** A setup assistant helps with permissions and models. The Test tab runs health checks and an end-to-end correction in TextEdit.
@@ -32,7 +33,7 @@ OpenSpell needs macOS 15 or later on an Apple silicon Mac. To build it yourself,
 
 ## Requirements
 
-- macOS 15 or later
+- macOS 15 or later (Apple Intelligence needs macOS 26)
 - An Apple silicon Mac (the build targets arm64, and on-device models need Apple silicon)
 - Xcode with Swift 6.3 or later (mlx-swift requires it)
 
@@ -65,7 +66,7 @@ To make a disk image, run `./scripts/package.sh` after building. It writes `buil
 The first time you launch OpenSpell, the Setup Assistant walks you through four steps:
 
 1. **Allow Accessibility.** Turn on OpenSpell in System Settings › Privacy & Security › Accessibility. OpenSpell needs this to read the selection, paste the fix and detect force clicks.
-2. **Choose a language model.** Download the recommended on-device model, or paste a Gemini or OpenRouter API key.
+2. **Choose a language model.** Use Apple Intelligence, download the recommended on-device model, or paste a Gemini or OpenRouter API key.
 3. **Learn your press.** Press firmly three times to calibrate force click sensitivity. If you don't have a Force Touch trackpad, skip this step.
 4. **Try it.** Correct a sample sentence.
 
@@ -85,7 +86,7 @@ To open Settings or History, click the menu bar icon.
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | General  | Set the language hint, launch at login, force click sensitivity, bubble position and history. Also shows whether Accessibility is allowed. |
 | Shortcut | Record a different global shortcut                                                                                                         |
-| Models   | Download on-device models, add API keys, and browse and choose cloud models                                                                |
+| Models   | Use Apple Intelligence, download or search for on-device models, add API keys, and browse and choose cloud models                          |
 | Test     | Run a health check, test the triggers, run an end-to-end correction in TextEdit, or try the playground                                     |
 | About    | See the version and check GitHub for updates                                                                                               |
 
@@ -93,17 +94,23 @@ To open Settings or History, click the menu bar icon.
 
 ![The Models tab in OpenSpell settings](docs/screenshots/settings-models.png)
 
+### Apple Intelligence
+
+On macOS 26 or later with Apple Intelligence turned on, OpenSpell can use Apple's on-device model. It's free, needs no download and keeps your text on your Mac. A fresh install picks it automatically; otherwise click **Use** in the Models tab. The Models tab lists the languages it supports; for others, use another model. Its context window is small, so OpenSpell corrects long text a few paragraphs at a time.
+
 ### On-device (MLX)
 
 On-device models are free, keep your text private, and work offline once they're downloaded. They need an Apple silicon Mac. These are the recommended models:
 
-| Model               | Hugging Face repo                             | Size   | Notes                                          |
-| ------------------- | --------------------------------------------- | ------ | ---------------------------------------------- |
-| Qwen3 4B Instruct   | `mlx-community/Qwen3-4B-Instruct-2507-4bit`   | 2.3 GB | The best balance of speed and quality          |
-| Gemma 3n E4B        | `mlx-community/gemma-3n-E4B-it-lm-4bit`       | 3.9 GB | Trained on more than 140 languages             |
-| Mistral 7B Instruct | `mlx-community/Mistral-7B-Instruct-v0.3-4bit` | 4.1 GB | Strong in French; works best with 16 GB of RAM |
+| Model                 | Hugging Face repo                           | Size   | Notes                                           |
+| --------------------- | ------------------------------------------- | ------ | ----------------------------------------------- |
+| Qwen3 4B Instruct     | `mlx-community/Qwen3-4B-Instruct-2507-4bit` | 2.3 GB | The best balance of speed and quality           |
+| Qwen3.5 4B            | `mlx-community/Qwen3.5-4B-MLX-4bit`         | 3.1 GB | Newer, and accurate in many languages           |
+| Gemma 3n E4B          | `mlx-community/gemma-3n-E4B-it-lm-4bit`     | 3.9 GB | Trained on more than 140 languages              |
+| Gemma 4 E4B           | `mlx-community/gemma-4-e4b-it-4bit`         | 5.2 GB | The most accurate; works best with 16 GB of RAM |
+| Llama 3.2 3B Instruct | `mlx-community/Llama-3.2-3B-Instruct-4bit`  | 1.8 GB | The smallest and fastest; best in English       |
 
-You can also enter any Hugging Face repo that contains MLX weights (`*.safetensors`). Downloads use several parallel connections and resume where they left off. Each file is checked against its SHA-256 checksum.
+To find others, click **Search Hugging Face…**. It lists the MLX models that OpenSpell can run, most downloaded first, with their download size, and warns about models that are large for your Mac's memory. You can also enter any Hugging Face repo that contains MLX weights (`*.safetensors`). Downloads use several parallel connections and resume where they left off. Each file is checked against its SHA-256 checksum.
 
 The model stays in memory while you use it. After 30 secondes without a correction, OpenSpell frees that memory, so the next correction takes a few seconds longer.
 
@@ -133,8 +140,9 @@ Paste an [OpenRouter](https://openrouter.ai) key. Then browse the catalogue, whi
 
 1. **Trigger.** The shortcut is registered as a Carbon global hotkey. For force clicks, a CGEvent tap reads the trackpad pressure. Once a correction starts, the tap swallows the rest of the press so the app underneath doesn't react.
 2. **Read.** OpenSpell gets the selected text and its position on screen through the Accessibility API. If an app doesn't expose its text, OpenSpell sends ⌘C instead. Chromium and Electron apps are asked to turn on their accessibility tree.
-3. **Correct.** The text goes to the selected model with a proofreading prompt ([CorrectionPrompt.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/CorrectionPrompt.swift)). The temperature is 0, and reasoning is turned off or kept to a minimum. OpenSpell removes think blocks, code fences and wrapping quotes from the output, then restores the original leading and trailing whitespace.
-4. **Write back.** If the original selection was lost, OpenSpell selects it again. It then pastes the fix with ⌘V and restores the clipboard. The temporary clipboard entry is marked so that clipboard managers ignore it.
+3. **Correct.** The text goes to the selected model with a proofreading prompt ([CorrectionPrompt.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/CorrectionPrompt.swift)). The temperature is 0, and reasoning is turned off or kept to a minimum. OpenSpell removes think blocks, code fences and wrapping quotes from the output, keeps your apostrophe style, then restores the original leading and trailing whitespace.
+4. **Check.** OpenSpell lines up the words of the answer with your text ([CorrectionCheck.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/CorrectionCheck.swift)). Spelling, accents, punctuation and capitalization can change freely, but only a few words can be added, removed or replaced, and the answer has to start and end like your text. A label or notes around the corrected text are cut off. Anything else, such as a reply, a translation, a summary or part of the text, is asked for again with a reminder. If the second answer isn't a correction either, nothing is changed and the bubble says so.
+5. **Write back.** If the original selection was lost, OpenSpell selects it again. It then pastes the fix with ⌘V and restores the clipboard. The temporary clipboard entry is marked so that clipboard managers ignore it.
 
 ## Troubleshooting
 
@@ -192,7 +200,7 @@ The keyboard needs Full Access to reach the network and to read the API key and 
 
 iOS keyboards see only some of the text around the cursor and can only delete backwards and type. Before reading, OpenSpell moves the cursor by one character and back, so the app reports its current text. After the model answers, it deletes and retypes only the part that changed. If the text changed while the model was working, OpenSpell leaves it alone and copies the fix to the clipboard.
 
-The logic shared by the Mac and iPhone apps lives in [Packages/OpenSpellCore](Packages/OpenSpellCore). The `OpenSpellCore` library only uses Foundation, plus FoundationModels on iOS, so the keyboard stays within its small memory limit. Run its tests with `swift test --package-path Packages/OpenSpellCore`.
+The logic shared by the Mac and iPhone apps lives in [Packages/OpenSpellCore](Packages/OpenSpellCore). The `OpenSpellCore` library only uses Foundation and FoundationModels, so the keyboard stays within its small memory limit. Run its tests with `swift test --package-path Packages/OpenSpellCore`.
 
 ## Releases
 
@@ -235,10 +243,11 @@ APP=build/OpenSpell.app/Contents/MacOS/OpenSpell
 # Download an MLX model
 $APP --download mlx-community/Qwen3-4B-Instruct-2507-4bit
 
-# Correct a string with a downloaded model, an OpenRouter slug or a Gemini model
+# Correct a string with a downloaded model, an OpenRouter slug, a Gemini model or Apple Intelligence
 $APP --correct mlx-community/Qwen3-4B-Instruct-2507-4bit "I beleive its definately ready."
 $APP --correct openrouter:google/gemini-2.5-flash "I beleive its definately ready."
 GEMINI_API_KEY=your-key $APP --correct gemini:gemini-flash-latest "I beleive its definately ready."
+$APP --correct apple "I beleive its definately ready."
 
 # Run the health checks and the TextEdit end-to-end test (the local model is optional)
 $APP --e2e mlx-community/Qwen3-4B-Instruct-2507-4bit
@@ -247,7 +256,7 @@ $APP --e2e mlx-community/Qwen3-4B-Instruct-2507-4bit
 $APP --snapshot /tmp/openspell-snapshots
 ```
 
-`openrouter:` uses the API key saved in the Keychain. `gemini:` uses `GEMINI_API_KEY` if it's set, and the saved key if it isn't.
+`openrouter:` uses the API key saved in the Keychain. `gemini:` uses `GEMINI_API_KEY` if it's set, and the saved key if it isn't. `--correct` checks the answer like a real correction does: it asks again after an answer that isn't the corrected text, and fails if the second one isn't either.
 
 ## Project structure
 

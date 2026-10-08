@@ -12,6 +12,7 @@ struct ModelsSettingsView: View {
     @State private var geminiImporting = false
     @State private var geminiImportError: String?
     @State private var showingOpenRouterBrowser = false
+    @State private var showingHuggingFaceBrowser = false
 
     var body: some View {
         ScrollView {
@@ -36,6 +37,10 @@ struct ModelsSettingsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 Caption("Corrections use the model marked “In use”. Click another ready model to switch.")
 
+                SectionHeader(text: "Apple Intelligence").padding(.top, 12)
+                SettingsCard { appleIntelligenceRow }
+                Caption(appleIntelligenceCaption)
+
                 SectionHeader(text: "Recommended on-device models").padding(.top, 12)
                 SettingsCard {
                     ForEach(Array(ModelStore.recommended.enumerated()), id: \.element.id) { index, model in
@@ -50,7 +55,23 @@ struct ModelsSettingsView: View {
                     Caption("Free, private, and they work offline. Downloaded once from Hugging Face.")
                 }
 
-                SectionHeader(text: "Download from Hugging Face").padding(.top, 12)
+                SectionHeader(text: "More on-device models").padding(.top, 12)
+                HStack(spacing: 10) {
+                    Button {
+                        showingHuggingFaceBrowser = true
+                    } label: {
+                        Label("Search Hugging Face…", systemImage: "magnifyingglass")
+                    }
+                    .controlSize(.large)
+                    .disabled(!ModelStore.isAppleSilicon)
+                    .popover(isPresented: $showingHuggingFaceBrowser, arrowEdge: .bottom) {
+                        HuggingFaceBrowser(onPick: { showingHuggingFaceBrowser = false })
+                    }
+                    Caption("Hundreds of MLX models — only the ones OpenSpell can run are listed.")
+                    Spacer()
+                }
+
+                Text("Or enter a repo").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).padding(.top, 4)
                 HStack {
                     TextField("mlx-community/Qwen3-4B-4bit", text: $hfRepo)
                         .textFieldStyle(.roundedBorder)
@@ -201,6 +222,41 @@ struct ModelsSettingsView: View {
     // MARK: Rows
 
     @ViewBuilder
+    private var appleIntelligenceRow: some View {
+        let status = AppleIntelligence.status
+        HStack(spacing: 12) {
+            Image(systemName: "apple.intelligence").font(.system(size: 18)).foregroundStyle(.secondary).frame(width: 30)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text("Apple Intelligence").font(.system(size: 14, weight: .semibold))
+                    Pill(text: "Built in")
+                }
+                Text("Apple · Private, free and fast, with nothing to download.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if let message = status.message {
+                Label("Unavailable", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange).font(.system(size: 12)).help(message)
+            } else if store.selected?.kind == .apple {
+                Label("In use", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(Color.accentColor).font(.system(size: 13, weight: .medium))
+            } else {
+                Button("Use") { store.useAppleIntelligence() }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private var appleIntelligenceCaption: String {
+        if let message = AppleIntelligence.status.message { return message + "." }
+        let names = Set(AppleIntelligence.languageCodes.compactMap { Locale.current.localizedString(forLanguageCode: $0) })
+        let languages = names.isEmpty ? "" : " It works with \(names.sorted().formatted(.list(type: .and)))."
+        return "Apple's on-device model, built into macOS. Your text stays on your Mac." + languages
+    }
+
+    @ViewBuilder
     private func recommendedRow(_ model: RecommendedModel) -> some View {
         let entry = store.entry(forRepo: model.repo, kind: .local)
         HStack(spacing: 12) {
@@ -241,7 +297,8 @@ struct ModelsSettingsView: View {
                     if store.isFreeOpenRouter(entry) { Pill(text: "Free") }
                     if isSelected { Pill(text: "In use", color: .accentColor) }
                 }
-                Text(entry.repo).font(.system(size: 12)).foregroundStyle(.secondary)
+                Text(entry.kind == .apple ? "On-device · built into macOS" : entry.repo)
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
             }
             Spacer()
             statusView(for: entry, compact: false)
@@ -261,6 +318,7 @@ struct ModelsSettingsView: View {
     private func badge(for kind: ModelEntry.Kind) -> some View {
         switch kind {
         case .local: Pill(text: "local", color: .green)
+        case .apple: Pill(text: "Apple", color: .green)
         case .cloud: Pill(text: "OpenRouter", color: .blue)
         case .gemini: Pill(text: "Gemini API", color: .purple)
         }
@@ -269,6 +327,11 @@ struct ModelsSettingsView: View {
     @ViewBuilder
     private func statusView(for entry: ModelEntry, compact: Bool) -> some View {
         switch entry.kind {
+        case .apple:
+            if let message = AppleIntelligence.status.message {
+                Label("Unavailable", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange).font(.system(size: 12)).help(message)
+            }
         case .cloud, .gemini:
             if !store.isReady(entry) {
                 Label(entry.kind == .gemini ? "Needs Gemini key" : "Needs API key", systemImage: "key")
@@ -550,6 +613,118 @@ struct OpenRouterBrowser: View {
                 await store.refreshOpenRouterCatalog()
                 loading = false
             }
+        }
+    }
+}
+
+// MARK: - Hugging Face model browser
+
+/// Searchable list of the MLX models on Hugging Face that OpenSpell can run, most downloaded first.
+struct HuggingFaceBrowser: View {
+    var onPick: () -> Void
+    @ObservedObject private var store = ModelStore.shared
+    @State private var query = ""
+    @State private var communityOnly = true
+    @State private var models: [HFSearch.Model] = []
+    @State private var loading = false
+    @State private var failure: String?
+    /// Download sizes in bytes, fetched as rows appear (0 when unknown).
+    @State private var sizes: [String: Int64] = [:]
+
+    private let memory = Int64(ProcessInfo.processInfo.physicalMemory)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                TextField("Search, e.g. gemma, qwen or llama", text: $query).textFieldStyle(.roundedBorder)
+                Toggle("mlx-community only", isOn: $communityOnly).toggleStyle(.checkbox)
+                    .help("Models converted by the MLX community. Turn off to include everyone's uploads.")
+            }
+            if let failure {
+                Label(failure, systemImage: "exclamationmark.triangle.fill").font(.system(size: 12)).foregroundStyle(.orange)
+            }
+            List(models) { row($0) }
+                .listStyle(.inset)
+                .overlay {
+                    if loading && models.isEmpty {
+                        ProgressView("Searching…")
+                    } else if !loading && models.isEmpty && failure == nil {
+                        Text("No matching models").foregroundStyle(.secondary)
+                    }
+                }
+            Caption("Instruction-tuned models (“it”, “Instruct”) correct best. Bigger models are more accurate, but slower and need more memory.")
+        }
+        .padding(14)
+        .frame(width: 560, height: 480)
+        .task(id: "\(communityOnly) \(query)") {
+            // Wait for a pause in typing: the next keystroke cancels this task.
+            if !query.isEmpty { try? await Task.sleep(for: .milliseconds(350)) }
+            guard !Task.isCancelled else { return }
+            loading = true
+            do {
+                models = try await HFSearch.models(matching: query, communityOnly: communityOnly)
+                failure = nil
+            } catch where !Task.isCancelled {
+                failure = "Couldn't search Hugging Face: \(error.localizedDescription)"
+            } catch {}
+            if !Task.isCancelled { loading = false }
+        }
+    }
+
+    @ViewBuilder
+    private func row(_ model: HFSearch.Model) -> some View {
+        let entry = store.entry(forRepo: model.id, kind: .local)
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Text("\(model.author) · \(model.downloads.formatted(.number.notation(.compactName))) downloads")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer()
+            if let bits = model.bits {
+                Text("\(bits)-bit").font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            sizeLabel(model.id)
+            if let entry, store.state(of: entry) != .notDownloaded {
+                switch store.state(of: entry) {
+                case .downloading(let p):
+                    Text("\(Int(p * 100)) %").font(.system(size: 12).monospacedDigit()).foregroundStyle(.secondary)
+                case .failed(let message):
+                    Button("Retry") { store.downloadLocal(repo: model.id); onPick() }.help(message)
+                default:
+                    Label(store.selectedID == entry.id ? "In use" : "Downloaded", systemImage: "checkmark")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            } else {
+                Button("Download") {
+                    store.downloadLocal(repo: model.id, displayName: model.name)
+                    onPick()
+                }
+            }
+        }
+        .padding(.vertical, 2)
+        .task {
+            guard sizes[model.id] == nil else { return }
+            do {
+                sizes[model.id] = try await HFSearch.downloadSize(of: model.id)
+            } catch where !Task.isCancelled {
+                sizes[model.id] = 0
+            } catch {}
+        }
+    }
+
+    @ViewBuilder
+    private func sizeLabel(_ repo: String) -> some View {
+        switch sizes[repo] {
+        case nil:
+            ProgressView().controlSize(.mini)
+        case 0?:
+            Text("—").foregroundStyle(.secondary)
+        case let bytes?:
+            let large = bytes > memory / 2
+            Pill(text: bytes.formatted(.byteCount(style: .file)), color: large ? .orange : .green)
+                .help(large ? "Large for this Mac's \(memory.formatted(.byteCount(style: .memory))) of memory: it may be slow or fail to load."
+                            : "Download size")
         }
     }
 }

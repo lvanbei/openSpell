@@ -32,8 +32,27 @@ public enum CorrectionPrompt {
 
     public static func user(_ text: String) -> String { "<text>\(text)</text>" }
 
+    /// The user message for a second try, after an answer that wasn't the corrected text.
+    static func retry(_ text: String) -> String {
+        "Return all of this text with its mistakes fixed, and nothing else. Do not reply to it, translate it, shorten it or comment on it.\n"
+            + user(text)
+    }
+
     /// Cleans common LLM artifacts and restores the original's surrounding whitespace.
     public static func postProcess(_ output: String, original: String) -> String {
+        let out = clean(output, original: original)
+        return out.isEmpty ? original : surrounded(out, like: original)
+    }
+
+    /// `text` with the leading and trailing whitespace of `original`.
+    static func surrounded(_ text: String, like original: String) -> String {
+        let leading = original.prefix { $0.isWhitespace || $0.isNewline }
+        let trailing = String(original.reversed().prefix { $0.isWhitespace || $0.isNewline }.reversed())
+        return leading + text + trailing
+    }
+
+    /// The output without think blocks, code fences, echoed tags, wrapping quotes or surrounding whitespace.
+    static func clean(_ output: String, original: String) -> String {
         var out = output
 
         // Strip reasoning blocks from "thinking" models.
@@ -67,10 +86,12 @@ public enum CorrectionPrompt {
             }
         }
 
-        guard !out.isEmpty else { return original }
-
-        let leading = original.prefix { $0.isWhitespace || $0.isNewline }
-        let trailing = String(original.reversed().prefix { $0.isWhitespace || $0.isNewline }.reversed())
-        return leading + out + trailing
+        // Keep the writer's apostrophes: models often swap typographic ones for straight ones, or the reverse.
+        if original.contains("’"), !original.contains("'") {
+            out = out.replacingOccurrences(of: "'", with: "’")
+        } else if original.contains("'"), !original.contains("’") {
+            out = out.replacingOccurrences(of: "’", with: "'")
+        }
+        return out
     }
 }

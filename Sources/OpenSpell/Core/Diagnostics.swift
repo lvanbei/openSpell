@@ -182,6 +182,12 @@ final class Diagnostics: ObservableObject {
                 } else {
                     $0.status = .fail; $0.detail = "\(m.displayName) needs a Gemini API key (Models tab)."
                 }
+            case .apple:
+                if let reason = AppleIntelligence.status.message {
+                    $0.status = .fail; $0.detail = "\(reason)."
+                } else {
+                    $0.status = .pass; $0.detail = "Apple Intelligence (on-device, built into macOS)."; modelUsable = true
+                }
             case .local:
                 switch store.state(of: m) {
                 case .ready:
@@ -204,9 +210,8 @@ final class Diagnostics: ObservableObject {
         update(.modelResponse) { $0.status = .running; $0.detail = "Asking the model… (a local model loads on first use)" }
         let start = Date()
         do {
-            let raw = try await store.complete(system: CorrectionPrompt.system(language: AppSettings.shared.language),
-                                               user: CorrectionPrompt.user(Self.sample))
-            let fixed = CorrectionPrompt.postProcess(raw, original: Self.sample)
+            // The same path as a real correction, including the check that the answer is the corrected text.
+            let fixed = try await CorrectionService.correct(Self.sample, language: AppSettings.shared.language).corrected
             let seconds = Date().timeIntervalSince(start)
             let remaining = Self.typos.filter { fixed.contains($0) }
             update(.modelResponse) {
