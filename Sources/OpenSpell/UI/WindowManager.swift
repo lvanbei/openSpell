@@ -25,7 +25,8 @@ enum SettingsTab: Int, CaseIterable {
     }
 }
 
-/// Owns the app's few windows. Being a menu bar app, every `show…` also activates the app.
+/// Owns the app's few windows. Being a menu bar app, every `show…` also activates the app, which
+/// shows in the Dock until its last window closes.
 @MainActor
 final class WindowManager: NSObject, NSWindowDelegate {
     static let shared = WindowManager()
@@ -69,10 +70,18 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     private func present(_ window: NSWindow) {
         if !window.isVisible { window.center() }
-        NSApp.activate()
-        // activate() is only a request since macOS 14; raise the window even if it isn't granted.
-        window.orderFrontRegardless()
-        window.makeKeyAndOrderFront(nil)
+        // Wait until the status item's menu has finished tracking: activating from inside it is refused,
+        // and once it closes macOS hands focus back to the previous app, which then covers our window.
+        RunLoop.main.perform(inModes: [.default]) {
+            MainActor.assumeIsolated {
+                // Since macOS 14 an accessory app's activation request is often denied; a regular app's
+                // isn't. So OpenSpell shows in the Dock while one of its windows is open.
+                NSApp.setActivationPolicy(.regular)
+                NSApp.activate()
+                window.orderFrontRegardless()
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
     }
 
     private func buildSettings() {
@@ -115,8 +124,15 @@ final class WindowManager: NSObject, NSWindowDelegate {
         return window
     }
 
+    /// Windows are reused, so there's nothing to tear down; once the last one closes the app goes back to
+    /// being menu bar only.
     func windowWillClose(_ notification: Notification) {
-        // Nothing to tear down; windows are reused.
+        let closing = notification.object as? NSWindow
+        let anotherIsOpen = [settingsWindow, historyWindow, setupWindow].contains { window in
+            guard let window, window !== closing else { return false }
+            return window.isVisible || window.isMiniaturized
+        }
+        if !anotherIsOpen { NSApp.setActivationPolicy(.accessory) }
     }
 
     /// Developer aid: renders every window to PNGs in `directory` (`OpenSpell --snapshot <dir>`).

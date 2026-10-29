@@ -92,6 +92,18 @@ struct CorrectionCheckTests {
         let fixed = try await CorrectionService.ask("  longueur n’est pas la meme\n", system: "s") { _, user in await model.answer(user) }
         #expect(fixed == "  La longueur n’est pas la même.\n")
     }
+
+    @Test func keepsTheLayoutAndMarkup() async throws {
+        let original = "hi team,\n\n\t- teh **dealine** is friday\n\t- see https://exemple.com/plan_v2\n"
+        let model = FakeModel(["Hi team, - The deadline is Friday - See https://example.com/plan-v2."])
+        let fixed = try await CorrectionService.ask(original, system: "s") { _, user in await model.answer(user) }
+        #expect(fixed == "Hi team,\n\n\t- The **deadline** is Friday\n\t- See https://exemple.com/plan_v2\n")
+    }
+
+    @Test func keepsAFencedCodeBlock() {
+        let original = "```\nlet x = 1\n```"
+        #expect(CorrectionPrompt.postProcess(original, original: original) == original)
+    }
 }
 
 private actor FakeModel {

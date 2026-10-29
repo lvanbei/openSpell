@@ -72,13 +72,13 @@ public enum CorrectionService {
     }
 
     /// Asks for `text` corrected, and once more with a reminder if the answer is something else.
-    /// Never returns anything but the whole text, corrected.
+    /// Never returns anything but the whole text, corrected, with its layout and markup as they were.
     nonisolated public static func ask(_ text: String, system: String,
                                        model: @Sendable (_ system: String, _ user: String) async throws -> String) async throws -> String {
         for user in [CorrectionPrompt.user(text), CorrectionPrompt.retry(text)] {
             let output = CorrectionPrompt.clean(try await model(system, user), original: text)
             if let corrected = CorrectionCheck.correction(in: output, of: text) {
-                return CorrectionPrompt.surrounded(corrected, like: text)
+                return CorrectionPrompt.surrounded(LayoutGuard.restore(corrected, from: text), like: text)
             }
             try Task.checkCancellation()
             NSLog("OpenSpell: the model's answer wasn't the corrected text (\(output.count) characters for \(text.count))")

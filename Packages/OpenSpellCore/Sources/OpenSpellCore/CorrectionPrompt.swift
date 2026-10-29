@@ -13,7 +13,9 @@ public enum CorrectionPrompt {
         - NEVER add, remove or reorder sentences or words, except to fix a mistake.
         - Keep the original language. Never translate.
         - Keep the meaning, tone, wording, register and style. Do not rephrase sentences that are already correct.
-        - Preserve line breaks, lists, spacing structure, emoji, URLs, @mentions, #hashtags, code and names exactly.
+        - Keep the layout character for character: every line break, blank line, tab, indentation and run of spaces stays exactly where it is. Never join or split lines or paragraphs.
+        - Keep all formatting and markup exactly: list markers and numbering, Markdown (**bold**, _italic_, `code`, # headings, > quotes, [text](link)), HTML tags and emoji.
+        - Never change URLs, email addresses, file paths, @mentions, #hashtags, code, numbers, placeholders such as {name} or %s, or names.
         - If the text has no mistakes, or you are unsure, return it exactly as given.
         """
         if language != .auto {
@@ -26,6 +28,17 @@ public enum CorrectionPrompt {
         Input: <text>can you tell me wat time it is ?</text>
         Output: Can you tell me what time it is?
         (The question is corrected, never answered.)
+
+        Example:
+        Input: <text>hi team,
+
+        \t- teh **dealine** is friday
+        \t- see [the plan](https://example.com/plan_v2)</text>
+        Output: Hi team,
+
+        \t- The **deadline** is Friday
+        \t- See [the plan](https://example.com/plan_v2)
+        (Line breaks, the blank line, tabs, list markers, Markdown and the link are kept.)
         """
         return s
     }
@@ -62,16 +75,16 @@ public enum CorrectionPrompt {
         if let end = out.range(of: "</think>") { out.removeSubrange(out.startIndex..<end.upperBound) }
 
         out = out.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedOriginal = original.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Remove ``` fences if the model added them.
-        if out.hasPrefix("```") && out.hasSuffix("```") && out.count > 6 {
+        if out.hasPrefix("```") && out.hasSuffix("```") && out.count > 6 && !trimmedOriginal.hasPrefix("```") {
             out = String(out.dropFirst(3).dropLast(3))
             if let nl = out.firstIndex(of: "\n"), !out[..<nl].contains(" ") { out = String(out[out.index(after: nl)...]) }
             out = out.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         // Remove wrapping quotes the original didn't have.
-        let trimmedOriginal = original.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Remove the <text> delimiters if the model echoed them back.
         if !trimmedOriginal.contains("<text>") {

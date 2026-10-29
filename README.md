@@ -24,12 +24,12 @@ OpenSpell needs macOS 15 or later on an Apple silicon Mac. To build it yourself,
 - **Two triggers.** Use a global keyboard shortcut, or a force click with adjustable sensitivity. The force click fires before macOS's Look Up.
 - **On-device models.** Use Apple Intelligence on macOS 26, or download MLX models from Hugging Face: pick a recommended one or search for others. Your text stays on your Mac.
 - **Cloud models.** Use the Google Gemini API or any text model on OpenRouter, including free ones.
-- **Minimal edits.** It fixes mistakes without rephrasing or translating, and leaves formatting, URLs, mentions and code alone.
+- **Minimal edits.** It fixes mistakes without rephrasing or translating. Line breaks, tabs, lists, Markdown, URLs, mentions and code stay as they were.
 - **Only corrections.** OpenSpell checks that the model returned your whole text, corrected. A reply, a translation, a summary or part of the text never replaces your selection.
 - **Language hint.** Auto-detect the language, or choose one of 17 languages.
 - **History.** Your last 1,000 corrections are kept in a local log that you can search.
 - **Guided setup and self-test.** A setup assistant helps with permissions and models. The Test tab runs health checks and an end-to-end correction in TextEdit.
-- **Menu bar only.** There's no Dock icon, and the app can launch at login.
+- **Menu bar only.** There's no Dock icon (except while one of its windows is open, so it can come to the front), and the app can launch at login.
 
 ## Requirements
 
@@ -142,7 +142,8 @@ Paste an [OpenRouter](https://openrouter.ai) key. Then browse the catalogue, whi
 2. **Read.** OpenSpell gets the selected text and its position on screen through the Accessibility API. If an app doesn't expose its text, OpenSpell sends ⌘C instead. Chromium and Electron apps are asked to turn on their accessibility tree.
 3. **Correct.** The text goes to the selected model with a proofreading prompt ([CorrectionPrompt.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/CorrectionPrompt.swift)). The temperature is 0, and reasoning is turned off or kept to a minimum. OpenSpell removes think blocks, code fences and wrapping quotes from the output, keeps your apostrophe style, then restores the original leading and trailing whitespace.
 4. **Check.** OpenSpell lines up the words of the answer with your text ([CorrectionCheck.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/CorrectionCheck.swift)). Spelling, accents, punctuation and capitalization can change freely, but only a few words can be added, removed or replaced, and the answer has to start and end like your text. A label or notes around the corrected text are cut off. Anything else, such as a reply, a translation, a summary or part of the text, is asked for again with a reminder. If the second answer isn't a correction either, nothing is changed and the bubble says so.
-5. **Write back.** If the original selection was lost, OpenSpell selects it again. It then pastes the fix with ⌘V and restores the clipboard. The temporary clipboard entry is marked so that clipboard managers ignore it.
+5. **Keep the layout.** OpenSpell puts back anything the model changed in the layout ([LayoutGuard.swift](Packages/OpenSpellCore/Sources/OpenSpellCore/LayoutGuard.swift)): the line breaks, blank lines, tabs and spaces between the words it kept, list and Markdown markers, and URLs, email addresses, paths, numbers, mentions and code.
+6. **Write back.** If the original selection was lost, OpenSpell selects it again. It then pastes the fix as plain text with ⌘V and restores the clipboard, so in rich text editors the selection loses its styles and links. The temporary clipboard entry is marked so that clipboard managers ignore it.
 
 ## Troubleshooting
 
